@@ -12,7 +12,9 @@ public record SimConfig(
         Population population,
         Food food,
         Energy energy,
-        Evolution evolution
+        Evolution evolution,
+        Needs needs,
+        Animation animation
 ) {
 
     public record Simulation(int tickInterval, double timeScale) {}
@@ -28,6 +30,24 @@ public record SimConfig(
     public record Energy(double baseCost, double speedCost, double sizeCost, double visionCost) {}
 
     public record Evolution(double mutationRate, double mutationStrength, double initialSpread) {}
+
+    /**
+     * Thirst, wellbeing and orientation. Hydration and mood run 0..100.
+     * pondCount/pondRadius: water the creatures drink from; thirstDrain: hydration lost per
+     * second; drinkRate: hydration gained per second in a pond; seekBelow: hydration under which
+     * creatures look for water; dehydrationDamage: energy lost per second at zero hydration;
+     * depressionBelow: mood under which a creature is depressed (slower, no mating);
+     * moodDrain/moodRecovery: mood change per second; griefMoodLoss: mood lost by every creature
+     * near a death (double for a widowed partner); sameSexChance: share of creatures that
+     * pair with their own sex.
+     */
+    public record Needs(int pondCount, double pondRadius, double thirstDrain, double drinkRate,
+                        double seekBelow, double dehydrationDamage, double depressionBelow,
+                        double depressedSpeedFactor, double moodDrain, double moodRecovery,
+                        double griefMoodLoss, double sameSexChance) {}
+
+    /** tiltedMount: tilted model for the mounting mate (needs the resource pack); statBars: floating stat bars. */
+    public record Animation(boolean tiltedMount, boolean statBars) {}
 
     public static SimConfig load(FileConfiguration cfg, Logger log) {
         Simulation simulation = new Simulation(
@@ -72,7 +92,25 @@ public record SimConfig(
                 clamp(cfg.getDouble("evolution.mutation-strength", 0.08), 0, 1),
                 clamp(cfg.getDouble("evolution.initial-spread", 0.3), 0, 1));
 
-        return new SimConfig(simulation, arena, population, food, energy, evolution);
+        Needs needs = new Needs(
+                clamp(cfg.getInt("water.ponds", 3), 0, 12),
+                clamp(cfg.getDouble("water.pond-radius", 3.5), 1, 20),
+                clamp(cfg.getDouble("water.thirst-per-second", 1.2), 0, 100),
+                clamp(cfg.getDouble("water.drink-per-second", 25), 0.1, 1000),
+                clamp(cfg.getDouble("water.seek-below", 50), 1, 100),
+                clamp(cfg.getDouble("water.dehydration-damage", 2.0), 0, 1000),
+                clamp(cfg.getDouble("wellbeing.depression-below", 25), 0, 100),
+                clamp(cfg.getDouble("wellbeing.depressed-speed-factor", 0.5), 0.05, 1),
+                clamp(cfg.getDouble("wellbeing.mood-drain-per-second", 1.0), 0, 100),
+                clamp(cfg.getDouble("wellbeing.mood-recovery-per-second", 0.6), 0, 100),
+                clamp(cfg.getDouble("wellbeing.grief-mood-loss", 18), 0, 100),
+                clamp(cfg.getDouble("orientation.same-sex-chance", 0.1), 0, 1));
+
+        Animation animation = new Animation(
+                cfg.getBoolean("animation.tilted-mount", true),
+                cfg.getBoolean("animation.stat-bars", true));
+
+        return new SimConfig(simulation, arena, population, food, energy, evolution, needs, animation);
     }
 
     private static Material block(FileConfiguration cfg, String path, Material fallback, Logger log) {

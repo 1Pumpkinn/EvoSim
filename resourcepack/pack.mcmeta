@@ -1,0 +1,7 @@
+{
+  "pack": {
+    "description": "EvoSim mating model",
+    "min_format": 69,
+    "max_format": 999
+  }
+}

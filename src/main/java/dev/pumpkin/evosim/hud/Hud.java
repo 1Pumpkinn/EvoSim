@@ -86,10 +86,10 @@ public final class Hud implements Listener {
         Stats s = sim.stats();
         int max = plugin.simConfig().population().max();
         String text = String.format(Locale.ROOT,
-                "%s | Pop %d | Food %d | Gen %d | Speed %.2f | Size %.2f | Vision %.1f",
+                "%s | Pop %d | Food %d | Gen %d | Speed %.2f | Size %.2f | Vision %.1f | Water %.0f | Mood %.0f",
                 sim.isRunning() ? "Running x" + trim(sim.timeScale()) : "Paused",
                 s.population(), s.food(), s.maxGeneration(),
-                s.meanSpeed(), s.meanSize(), s.meanVision());
+                s.meanSpeed(), s.meanSize(), s.meanVision(), s.meanHydration(), s.meanMood());
         bar.name(Component.text(text));
         bar.progress((float) Math.max(0.0, Math.min(1.0, s.population() / (double) max)));
         bar.color(sim.isRunning() ? BossBar.Color.GREEN : BossBar.Color.YELLOW);

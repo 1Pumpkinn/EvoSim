@@ -5,11 +5,13 @@ import dev.pumpkin.evosim.config.SimConfig;
 import dev.pumpkin.evosim.render.ColorMode;
 import dev.pumpkin.evosim.render.CreatureView;
 import dev.pumpkin.evosim.render.FoodView;
+import org.bukkit.entity.Entity;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.SplittableRandom;
 
 /**
@@ -52,6 +54,16 @@ public final class Simulation implements Ecosystem.Listener {
     public double timeScale() { return timeScale; }
 
     public Stats stats() { return ecosystem.stats(); }
+
+    /** The creature drawn by this entity, if it is one of ours. */
+    public Optional<Creature> creatureFor(Entity entity) {
+        for (Map.Entry<Creature, CreatureView> e : creatureViews.entrySet()) {
+            if (e.getValue().owns(entity)) return Optional.of(e.getKey());
+        }
+        return Optional.empty();
+    }
+
+    public SimConfig config() { return config; }
 
     /** Called once when the last creature dies; the simulation stops itself first. */
     public void onExtinction(Runnable listener) { this.extinctionListener = listener; }
@@ -137,7 +149,7 @@ public final class Simulation implements Ecosystem.Listener {
     @Override
     public void creatureBorn(Creature creature) {
         creatureViews.put(creature,
-                new CreatureView(arena, creature, colorMode, config.population().maturitySeconds()));
+                new CreatureView(arena, creature, colorMode, config));
     }
 
     @Override

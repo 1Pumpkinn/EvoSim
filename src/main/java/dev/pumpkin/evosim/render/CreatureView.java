@@ -1,37 +1,101 @@
 package dev.pumpkin.evosim.render;
 
 import dev.pumpkin.evosim.arena.Arena;
+import dev.pumpkin.evosim.config.SimConfig;
 import dev.pumpkin.evosim.genetics.Genome;
 import dev.pumpkin.evosim.sim.Creature;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
+import org.bukkit.Color;
+import org.bukkit.DyeColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.entity.Display;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Sheep;
+import org.bukkit.entity.TextDisplay;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.components.CustomModelDataComponent;
+import org.bukkit.util.Transformation;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
+
+import java.util.List;
 
 /**
  * Renders one creature as a real sheep. Its AI is off, so the simulation
  * drives it by teleporting every step; the client turns that movement into
  * the normal walking animation. Wool colour shows a gene, the body scale is
- * the size gene (newborns grow up), and mating pairs hop and shed hearts.
+ * the size gene (newborns grow up), and mating pairs stand still under hearts.
+ *
+ * <p>While mating, the lower-id partner mounts the other. A sheep entity
+ * cannot tilt its body, so with {@code animation.tilted-mount} on, that
+ * partner's sheep is hidden and an {@link ItemDisplay} showing the pack's
+ * {@code evosim:mounting_sheep} model is drawn in its place, tilted nose-up.
  */
 public final class CreatureView {
 
     /** Newborns start at this fraction of their adult size. */
     private static final double BABY_SCALE = 0.4;
 
+    /** Fallback (flat) pose: gap between the mates, per unit of summed body size. */
+    private static final double MOUNT_GAP = 0.3;
+
+    /** Fallback (flat) pose: how far the mounting mate is raised, per unit of the mounted mate's size. */
+    private static final double MOUNT_LIFT = 0.55;
+
+    /** Fallback (flat) pose: upward head tilt in degrees. */
+    private static final float MOUNT_HEAD_PITCH = 25f;
+
+    /** Tilted pose: nose-up angle of the mounting mate in degrees. */
+    private static final float MOUNT_TILT_DEGREES = 40f;
+
+    /** Tilted pose: hip distance behind the mounted mate's centre, per unit of its body size. */
+    private static final double MOUNT_HIP_DISTANCE = 0.9;
+
+    /** Rocking motion of the mounting mate: speed (radians per simulated second). */
+    private static final double ROCK_SPEED = 15.0;
+
+    /** Rocking motion: back-and-forth travel in blocks, per unit of the mounted mate's size. */
+    private static final double ROCK_DISTANCE = 0.12;
+
+    /** Rocking motion: extra tilt swing in degrees. */
+    private static final double ROCK_TILT_DEGREES = 4.0;
+
+    /** Model pixels from the ground to the hip pivot of the pack model (see resourcepack/). */
+    private static final double MODEL_HIP_HEIGHT = 13.0 / 16.0;
+
+    private static final NamespacedKey MOUNT_MODEL = new NamespacedKey("evosim", "mounting_sheep");
+
     private final Arena arena;
     private final Creature creature;
     private final double maturitySeconds;
+    private final boolean tiltedMount;
+    private final SimConfig config;
     private final Sheep sheep;
+    private TextDisplay statBar;
+
+    private DyeColor dye;
+    private ItemDisplay mountDisplay;
 
     private double appliedScale = -1;
     private int updates;
+    private int ticks;
 
-    public CreatureView(Arena arena, Creature creature, ColorMode mode, double maturitySeconds) {
+    public CreatureView(Arena arena, Creature creature, ColorMode mode, SimConfig config) {
         this.arena = arena;
         this.creature = creature;
-        this.maturitySeconds = maturitySeconds;
+        this.config = config;
+        this.maturitySeconds = config.population().maturitySeconds();
+        this.tiltedMount = config.animation().tiltedMount();
+        this.dye = mode.dye(creature.genome());
 
         Genome genome = creature.genome();
         this.sheep = arena.world().spawn(location(), Sheep.class, s -> {
@@ -43,17 +107,65 @@ public final class CreatureView {
             s.setCanPickupItems(false);
             s.setRemoveWhenFarAway(false);
             s.setPersistent(false);
-            s.setColor(mode.dye(genome));
+            s.setColor(dye);
+            if (creature.isSameSex()) {
+                // A sheep named "jeb_" has rainbow wool.
+                s.customName(Component.text("jeb_"));
+                s.setCustomNameVisible(false);
+            }
             s.addScoreboardTag(Arena.ENTITY_TAG);
         });
         applyScale();
+
+        if (config.animation().statBars()) {
+            this.statBar = arena.world().spawn(statBarLocation(), TextDisplay.class, d -> {
+                d.setBillboard(Display.Billboard.CENTER);
+                d.setPersistent(false);
+                d.setSeeThrough(false);
+                d.setShadowed(true);
+                d.setLineWidth(240);
+                d.setAlignment(TextDisplay.TextAlignment.CENTER);
+                d.setBackgroundColor(Color.fromARGB(90, 0, 0, 0));
+                d.setViewRange(0.3f);
+                d.setTeleportDuration(1);
+                float k = 0.45f;
+                d.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(),
+                        new Vector3f(k, k, k), new AxisAngle4f()));
+                d.addScoreboardTag(Arena.ENTITY_TAG);
+            });
+            refreshStatBar();
+        }
     }
+
+    /** True if this view's sheep is the given entity. */
+    public boolean owns(Entity entity) {
+        return entity.getUniqueId().equals(sheep.getUniqueId());
+    }
+
+    public Creature creature() { return creature; }
 
     /** Moves the mob to the creature's simulated position and plays mating effects. */
     public void update() {
         if (!sheep.isValid()) return;
         applyScale();
+        ticks++;
+
+        if (isMountingWithModel()) {
+            sheep.setInvisible(true);
+            updateMountDisplay();
+            if (creature.isSameSex() && ticks % 4 == 0 && mountDisplay != null) {
+                mountDisplay.setItemStack(mountItem()); // cycle the rainbow tint
+            }
+        } else {
+            removeMountDisplay();
+            sheep.setInvisible(false);
+        }
         sheep.teleport(location());
+
+        if (statBar != null && statBar.isValid()) {
+            statBar.teleport(statBarLocation());
+            if (ticks % 5 == 0) refreshStatBar();
+        }
 
         if (creature.isMating() && updates++ % 4 == 0) {
             arena.world().spawnParticle(Particle.HEART, location().add(0, sheep.getHeight() + 0.2, 0),
@@ -69,27 +181,197 @@ public final class CreatureView {
     }
 
     public void recolor(ColorMode mode) {
-        sheep.setColor(mode.dye(creature.genome()));
+        dye = mode.dye(creature.genome());
+        sheep.setColor(dye);
+        if (mountDisplay != null && mountDisplay.isValid()) {
+            mountDisplay.setItemStack(mountItem());
+        }
     }
 
     public void remove() {
+        if (statBar != null) {
+            statBar.remove();
+            statBar = null;
+        }
+        removeMountDisplay();
         sheep.remove();
     }
 
-    private Location location() {
-        Location loc = arena.toLocation(creature.x(), creature.z());
-        // Minecraft yaw 0 faces +z; the simulation heading 0 faces +x.
-        loc.setYaw((float) (Math.toDegrees(creature.heading()) - 90.0));
-        if (creature.isMating()) {
-            loc.add(0, 0.25 * Math.abs(Math.sin(creature.age() * 9.0)), 0); // happy hop
+    // --- Mounting partner: tilted model ---
+
+    /** True for the lower-id partner of a mating pair, when the tilted model is enabled. */
+    private boolean isMountingWithModel() {
+        Creature partner = creature.mate();
+        return tiltedMount && partner != null && creature.id() < partner.id();
+    }
+
+    private void updateMountDisplay() {
+        Creature partner = creature.mate();
+        // Same facing as the mounted partner: its heading, turned around (see location()).
+        double facing = partner.heading() + Math.PI;
+        double leaderScale = partner.genome().size();
+        // Rhythmic rocking: slides toward and away from the partner while the tilt swings a little.
+        double rock = Math.sin(creature.age() * ROCK_SPEED);
+        double dist = (MOUNT_HIP_DISTANCE - ROCK_DISTANCE * rock) * leaderScale;
+        double tilt = MOUNT_TILT_DEGREES + ROCK_TILT_DEGREES * rock;
+        double x = partner.x() - Math.cos(facing) * dist;
+        double z = partner.z() - Math.sin(facing) * dist;
+
+        double scale = currentScale();
+        // Pivot is the hip. Lift it so the hind feet of the tilted model touch the floor.
+        double lift = MODEL_HIP_HEIGHT * scale * Math.cos(Math.toRadians(tilt));
+
+        Location loc = arena.toLocation(x, z).add(0, lift, 0);
+        loc.setYaw((float) (Math.toDegrees(facing) - 90.0));
+        loc.setPitch((float) -tilt); // negative = nose up
+
+        if (mountDisplay == null || !mountDisplay.isValid()) {
+            mountDisplay = arena.world().spawn(loc, ItemDisplay.class, d -> {
+                d.setItemStack(mountItem());
+                d.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.NONE);
+                d.setPersistent(false);
+                d.setTeleportDuration(1); // smooth the rocking between updates
+                d.addScoreboardTag(Arena.ENTITY_TAG);
+            });
         }
+        float s = (float) scale;
+        // Item displays draw their model turned 180 degrees about Y; turn it back so the
+        // model's front (+z) matches the entity's facing and negative pitch is nose-up.
+        mountDisplay.setTransformation(new Transformation(
+                new Vector3f(), new AxisAngle4f((float) Math.PI, 0f, 1f, 0f),
+                new Vector3f(s, s, s), new AxisAngle4f()));
+        mountDisplay.teleport(loc);
+    }
+
+    private ItemStack mountItem() {
+        ItemStack item = new ItemStack(Material.STICK);
+        ItemMeta meta = item.getItemMeta();
+        meta.setItemModel(MOUNT_MODEL);
+        CustomModelDataComponent cmd = meta.getCustomModelDataComponent();
+        cmd.setColors(List.of(tint()));
+        meta.setCustomModelDataComponent(cmd);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    /** Wool tint for the mounting model: the dye colour, or a slowly cycling rainbow. */
+    private Color tint() {
+        if (creature.isSameSex()) {
+            float hue = (float) ((creature.age() * 0.5) % 1.0);
+            return Color.fromRGB(java.awt.Color.HSBtoRGB(hue, 0.8f, 1f) & 0xFFFFFF);
+        }
+        return dye.getColor();
+    }
+
+    private void removeMountDisplay() {
+        if (mountDisplay != null) {
+            mountDisplay.remove();
+            mountDisplay = null;
+        }
+    }
+
+    // --- Stat bar ---
+
+    private Location statBarLocation() {
+        return arena.toLocation(creature.x(), creature.z())
+                .add(0, 1.5 * currentScale() + 0.45, 0);
+    }
+
+    private void refreshStatBar() {
+        if (statBar == null || !statBar.isValid()) return;
+        SimConfig.Needs needs = config.needs();
+        double energyMax = config.population().reproductionThreshold();
+
+        String status;
+        NamedTextColor statusColor = NamedTextColor.GRAY;
+        if (creature.isMating()) {
+            status = "Mating";
+            statusColor = NamedTextColor.LIGHT_PURPLE;
+        } else if (creature.mood() < needs.depressionBelow()) {
+            status = "Depressed";
+            statusColor = NamedTextColor.RED;
+        } else if (creature.hydration() < 25) {
+            status = "Thirsty";
+            statusColor = NamedTextColor.AQUA;
+        } else if (creature.energy() < energyMax * 0.35) {
+            status = "Hungry";
+            statusColor = NamedTextColor.GOLD;
+        } else {
+            status = "Fine";
+        }
+
+        double mood = creature.mood();
+        TextColor moodColor = mood >= 60 ? NamedTextColor.GREEN
+                : mood >= needs.depressionBelow() ? NamedTextColor.YELLOW : NamedTextColor.RED;
+
+        Component text = Component.text()
+                .append(Component.text(creature.isFemale() ? "Ewe" : "Ram", NamedTextColor.WHITE))
+                .append(Component.text(" | Gen " + creature.generation(), NamedTextColor.GRAY))
+                .appendNewline()
+                .append(bar("Energy", creature.energy() / energyMax, NamedTextColor.GOLD))
+                .appendNewline()
+                .append(bar("Water", creature.hydration() / 100.0, NamedTextColor.AQUA))
+                .appendNewline()
+                .append(bar("Mood", mood / 100.0, moodColor))
+                .appendNewline()
+                .append(Component.text(status, statusColor))
+                .build();
+        statBar.text(text);
+    }
+
+    private static Component bar(String label, double ratio, TextColor color) {
+        int total = 10;
+        int filled = (int) Math.round(Math.max(0, Math.min(1, ratio)) * total);
+        return Component.text()
+                .append(Component.text(label + " ", NamedTextColor.WHITE))
+                .append(Component.text("|".repeat(filled), color))
+                .append(Component.text("|".repeat(total - filled), NamedTextColor.DARK_GRAY))
+                .build();
+    }
+
+    // --- Flat fallback pose and positions ---
+
+    private Location location() {
+        double x = creature.x();
+        double z = creature.z();
+        double heading = creature.heading();
+        double lift = 0;
+        float pitch = 0f;
+
+        Creature partner = creature.mate();
+        if (partner != null) {
+            // Both partners stand completely still and face the same way, away
+            // from where they met. The creature with the higher id is mounted.
+            double lead = creature.id() > partner.id() ? creature.heading() : partner.heading();
+            double facing = lead + Math.PI;
+            heading = facing;
+            if (creature.id() < partner.id() && !tiltedMount) {
+                // Flat fallback: stand right behind it, raised, head lifted.
+                double leaderSize = partner.genome().size();
+                double gap = MOUNT_GAP * (creature.genome().size() + leaderSize);
+                x = partner.x() - Math.cos(facing) * gap;
+                z = partner.z() - Math.sin(facing) * gap;
+                lift = MOUNT_LIFT * leaderSize;
+                pitch = -MOUNT_HEAD_PITCH;
+            }
+        }
+
+        Location loc = arena.toLocation(x, z);
+        // Minecraft yaw 0 faces +z; the simulation heading 0 faces +x.
+        loc.setYaw((float) (Math.toDegrees(heading) - 90.0));
+        loc.setPitch(pitch);
+        if (lift > 0) loc.add(0, lift, 0);
         return loc;
+    }
+
+    private double currentScale() {
+        double growth = Math.min(1.0, BABY_SCALE + (1.0 - BABY_SCALE) * creature.age() / maturitySeconds);
+        return creature.genome().size() * growth;
     }
 
     /** Grows from baby to adult size, scaled by the size gene. */
     private void applyScale() {
-        double growth = Math.min(1.0, BABY_SCALE + (1.0 - BABY_SCALE) * creature.age() / maturitySeconds);
-        double scale = creature.genome().size() * growth;
+        double scale = currentScale();
         if (Math.abs(scale - appliedScale) > 0.005) {
             AttributeInstance attribute = sheep.getAttribute(Attribute.SCALE);
             if (attribute != null) {

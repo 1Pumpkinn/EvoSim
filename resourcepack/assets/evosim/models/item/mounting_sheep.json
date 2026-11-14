@@ -1,0 +1,806 @@
+{
+  "textures": {
+    "skin": "minecraft:entity/sheep/sheep",
+    "wool": "minecraft:entity/sheep/sheep_wool",
+    "particle": "minecraft:entity/sheep/sheep"
+  },
+  "elements": [
+    {
+      "name": "head",
+      "from": [
+        5,
+        11,
+        21
+      ],
+      "to": [
+        11,
+        17,
+        29
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            2.0,
+            4.0,
+            3.5,
+            7.0
+          ],
+          "texture": "#skin"
+        },
+        "north": {
+          "uv": [
+            5.5,
+            4.0,
+            7.0,
+            7.0
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            3.5,
+            4.0,
+            5.5,
+            7.0
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            0.0,
+            4.0,
+            2.0,
+            7.0
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            2.0,
+            0.0,
+            3.5,
+            4.0
+          ],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [
+            3.5,
+            0.0,
+            5.0,
+            4.0
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "name": "hind_left",
+      "from": [
+        9,
+        -5,
+        6
+      ],
+      "to": [
+        13,
+        7,
+        10
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            1.0,
+            10.0,
+            2.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "north": {
+          "uv": [
+            3.0,
+            10.0,
+            4.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            2.0,
+            10.0,
+            3.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            0.0,
+            10.0,
+            1.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            1.0,
+            8.0,
+            2.0,
+            10.0
+          ],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [
+            2.0,
+            8.0,
+            3.0,
+            10.0
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "name": "hind_right",
+      "from": [
+        3,
+        -5,
+        6
+      ],
+      "to": [
+        7,
+        7,
+        10
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            1.0,
+            10.0,
+            2.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "north": {
+          "uv": [
+            3.0,
+            10.0,
+            4.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            2.0,
+            10.0,
+            3.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            0.0,
+            10.0,
+            1.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            1.0,
+            8.0,
+            2.0,
+            10.0
+          ],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [
+            2.0,
+            8.0,
+            3.0,
+            10.0
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "name": "front_left",
+      "from": [
+        9,
+        -5,
+        18
+      ],
+      "to": [
+        13,
+        7,
+        22
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            1.0,
+            10.0,
+            2.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "north": {
+          "uv": [
+            3.0,
+            10.0,
+            4.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            2.0,
+            10.0,
+            3.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            0.0,
+            10.0,
+            1.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            1.0,
+            8.0,
+            2.0,
+            10.0
+          ],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [
+            2.0,
+            8.0,
+            3.0,
+            10.0
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "name": "front_right",
+      "from": [
+        3,
+        -5,
+        18
+      ],
+      "to": [
+        7,
+        7,
+        22
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            1.0,
+            10.0,
+            2.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "north": {
+          "uv": [
+            3.0,
+            10.0,
+            4.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "east": {
+          "uv": [
+            2.0,
+            10.0,
+            3.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "west": {
+          "uv": [
+            0.0,
+            10.0,
+            1.0,
+            16.0
+          ],
+          "texture": "#skin"
+        },
+        "up": {
+          "uv": [
+            1.0,
+            8.0,
+            2.0,
+            10.0
+          ],
+          "texture": "#skin"
+        },
+        "down": {
+          "uv": [
+            2.0,
+            8.0,
+            3.0,
+            10.0
+          ],
+          "texture": "#skin"
+        }
+      }
+    },
+    {
+      "name": "wool_body",
+      "from": [
+        2.25,
+        6.25,
+        5.25
+      ],
+      "to": [
+        13.75,
+        15.75,
+        24.75
+      ],
+      "faces": {
+        "up": {
+          "uv": [
+            8.5,
+            7.0,
+            10.5,
+            15.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "down": {
+          "uv": [
+            12.0,
+            7.0,
+            14.0,
+            15.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "south": {
+          "uv": [
+            8.5,
+            4.0,
+            10.5,
+            7.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "north": {
+          "uv": [
+            10.5,
+            4.0,
+            12.5,
+            7.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "east": {
+          "uv": [
+            10.5,
+            7.0,
+            12.0,
+            15.0
+          ],
+          "texture": "#wool",
+          "rotation": 90,
+          "tintindex": 0
+        },
+        "west": {
+          "uv": [
+            7.0,
+            7.0,
+            8.5,
+            15.0
+          ],
+          "texture": "#wool",
+          "rotation": 90,
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "wool_head",
+      "from": [
+        4.4,
+        10.4,
+        20.4
+      ],
+      "to": [
+        11.6,
+        17.6,
+        27.6
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            1.5,
+            3.0,
+            3.0,
+            6.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "north": {
+          "uv": [
+            4.5,
+            3.0,
+            6.0,
+            6.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "east": {
+          "uv": [
+            3.0,
+            3.0,
+            4.5,
+            6.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "west": {
+          "uv": [
+            0.0,
+            3.0,
+            1.5,
+            6.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "up": {
+          "uv": [
+            1.5,
+            0.0,
+            3.0,
+            3.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "down": {
+          "uv": [
+            3.0,
+            0.0,
+            4.5,
+            3.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "wool_hind_left",
+      "from": [
+        8.5,
+        0.5,
+        5.5
+      ],
+      "to": [
+        13.5,
+        7.5,
+        10.5
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            1.0,
+            10.0,
+            2.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "north": {
+          "uv": [
+            3.0,
+            10.0,
+            4.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "east": {
+          "uv": [
+            2.0,
+            10.0,
+            3.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "west": {
+          "uv": [
+            0.0,
+            10.0,
+            1.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "up": {
+          "uv": [
+            1.0,
+            8.0,
+            2.0,
+            10.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "down": {
+          "uv": [
+            2.0,
+            8.0,
+            3.0,
+            10.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "wool_hind_right",
+      "from": [
+        2.5,
+        0.5,
+        5.5
+      ],
+      "to": [
+        7.5,
+        7.5,
+        10.5
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            1.0,
+            10.0,
+            2.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "north": {
+          "uv": [
+            3.0,
+            10.0,
+            4.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "east": {
+          "uv": [
+            2.0,
+            10.0,
+            3.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "west": {
+          "uv": [
+            0.0,
+            10.0,
+            1.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "up": {
+          "uv": [
+            1.0,
+            8.0,
+            2.0,
+            10.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "down": {
+          "uv": [
+            2.0,
+            8.0,
+            3.0,
+            10.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "wool_front_left",
+      "from": [
+        8.5,
+        0.5,
+        17.5
+      ],
+      "to": [
+        13.5,
+        7.5,
+        22.5
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            1.0,
+            10.0,
+            2.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "north": {
+          "uv": [
+            3.0,
+            10.0,
+            4.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "east": {
+          "uv": [
+            2.0,
+            10.0,
+            3.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "west": {
+          "uv": [
+            0.0,
+            10.0,
+            1.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "up": {
+          "uv": [
+            1.0,
+            8.0,
+            2.0,
+            10.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "down": {
+          "uv": [
+            2.0,
+            8.0,
+            3.0,
+            10.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        }
+      }
+    },
+    {
+      "name": "wool_front_right",
+      "from": [
+        2.5,
+        0.5,
+        17.5
+      ],
+      "to": [
+        7.5,
+        7.5,
+        22.5
+      ],
+      "faces": {
+        "south": {
+          "uv": [
+            1.0,
+            10.0,
+            2.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "north": {
+          "uv": [
+            3.0,
+            10.0,
+            4.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "east": {
+          "uv": [
+            2.0,
+            10.0,
+            3.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "west": {
+          "uv": [
+            0.0,
+            10.0,
+            1.0,
+            13.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "up": {
+          "uv": [
+            1.0,
+            8.0,
+            2.0,
+            10.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        },
+        "down": {
+          "uv": [
+            2.0,
+            8.0,
+            3.0,
+            10.0
+          ],
+          "texture": "#wool",
+          "tintindex": 0
+        }
+      }
+    }
+  ]
+}

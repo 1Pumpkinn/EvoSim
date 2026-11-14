@@ -4,6 +4,8 @@ import dev.pumpkin.evosim.arena.Arena;
 import dev.pumpkin.evosim.command.EvoCommand;
 import dev.pumpkin.evosim.config.SimConfig;
 import dev.pumpkin.evosim.hud.Hud;
+import dev.pumpkin.evosim.inspect.FieldGuide;
+import dev.pumpkin.evosim.sim.Pond;
 import dev.pumpkin.evosim.sim.Simulation;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -29,8 +31,11 @@ public final class EvoSimPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(hud, this);
         hud.start();
 
+        FieldGuide fieldGuide = new FieldGuide(this);
+        getServer().getPluginManager().registerEvents(fieldGuide, this);
+
         PluginCommand command = Objects.requireNonNull(getCommand("evo"), "evo command missing from plugin.yml");
-        EvoCommand executor = new EvoCommand(this, hud);
+        EvoCommand executor = new EvoCommand(this, hud, fieldGuide);
         command.setExecutor(executor);
         command.setTabCompleter(executor);
 
@@ -75,7 +80,7 @@ public final class EvoSimPlugin extends JavaPlugin {
             simulation.shutdown();
         }
         arena.purgeEntities();
-        arena.build();
+        arena.build(Pond.layout(simConfig));
         arena.keepLoaded(this);
         simulation = new Simulation(this, simConfig, arena);
         simulation.onExtinction(() -> getServer().broadcast(

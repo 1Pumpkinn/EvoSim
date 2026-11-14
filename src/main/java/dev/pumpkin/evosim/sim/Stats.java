@@ -12,5 +12,9 @@ public record Stats(
         double diversity,
         long births,
         long deaths,
-        double elapsedSeconds
+        double elapsedSeconds,
+        double meanHydration,
+        double meanMood,
+        int depressed,
+        int sameSex
 ) {}

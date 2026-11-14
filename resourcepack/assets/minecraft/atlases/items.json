@@ -1,0 +1,12 @@
+{
+  "sources": [
+    {
+      "type": "single",
+      "resource": "minecraft:entity/sheep/sheep"
+    },
+    {
+      "type": "single",
+      "resource": "minecraft:entity/sheep/sheep_wool"
+    }
+  ]
+}

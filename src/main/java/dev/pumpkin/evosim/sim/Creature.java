@@ -19,12 +19,17 @@ public final class Creature {
     private double heading;
     private double energy;
     private double age;
+    private final boolean female;
+    private final boolean sameSex;
+    private double hydration = 100;
+    private double mood = 100;
 
     private Creature mate;
     private double matingRemaining;
 
     public Creature(long id, Genome genome, int generation,
-                    double x, double z, double heading, double energy) {
+                    double x, double z, double heading, double energy,
+                    boolean female, boolean sameSex) {
         this.id = id;
         this.genome = genome;
         this.generation = generation;
@@ -32,9 +37,27 @@ public final class Creature {
         this.z = z;
         this.heading = heading;
         this.energy = energy;
+        this.female = female;
+        this.sameSex = sameSex;
     }
 
     public long id() { return id; }
+
+    /** Ewe (true) or ram (false). */
+    public boolean isFemale() { return female; }
+
+    /** Pairs with its own sex instead of the other one. */
+    public boolean isSameSex() { return sameSex; }
+
+    /** Water level, 0..100. */
+    public double hydration() { return hydration; }
+
+    public void addHydration(double delta) { hydration = Math.max(0, Math.min(100, hydration + delta)); }
+
+    /** Wellbeing, 0..100; low values mean depression. */
+    public double mood() { return mood; }
+
+    public void addMood(double delta) { mood = Math.max(0, Math.min(100, mood + delta)); }
 
     public Genome genome() { return genome; }
 

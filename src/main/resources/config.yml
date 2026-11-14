@@ -51,3 +51,153 @@ evolution:
   mutation-strength: 0.08
   # How narrow the starting gene pool is (0 = identical, 1 = full range).
   initial-spread: 0.3
+
+water:
+  # Ponds are placed in the arena floor. Creatures drink when they stand in one.
+  ponds: 3
+  pond-radius: 3.5
+  # Hydration (0-100) lost per second, and gained per second while drinking.
+  thirst-per-second: 1.2
+  drink-per-second: 25
+  # Creatures look for water below this hydration (and put it before mating below half of it).
+  seek-below: 50
+  # Energy lost per second while hydration is 0.
+  dehydration-damage: 2.0
+
+wellbeing:
+  # Mood runs 0-100. Under this value a creature is depressed: slower, and it will not mate.
+  depression-below: 25
+  depressed-speed-factor: 0.5
+  # Mood falls while hungry, thirsty or alone (nobody in sight), and when others die nearby.
+  # It recovers otherwise, and eating and mating lift it.
+  mood-drain-per-second: 1.0
+  mood-recovery-per-second: 0.6
+  # Mood lost by every creature within a few blocks of a death (double for a widowed partner).
+  grief-mood-loss: 18
+
+orientation:
+  # Share of creatures that pair with their own sex. They pair up and show hearts like
+  # any other pair, but no child is born. They have rainbow wool.
+  same-sex-chance: 0.1
+
+animation:
+  # Floating bar above each sheep showing energy, water and mood.
+  stat-bars: true
+  # While mating, the mounting partner is drawn as a tilted sheep model (an item
+  # display) instead of the flat sheep. Needs the resource pack in resourcepack/.
+  # Set to false to keep the plain flat pose without the pack.
+  tilted-mount: true
+
+water:
+  # Ponds are placed in the arena floor. Creatures drink when they stand in one.
+  ponds: 3
+  pond-radius: 3.5
+  # Hydration (0-100) lost per second, and gained per second while drinking.
+  thirst-per-second: 1.2
+  drink-per-second: 25
+  # Creatures look for water below this hydration (and put it before mating below half of it).
+  seek-below: 50
+  # Energy lost per second while hydration is 0.
+  dehydration-damage: 2.0
+
+wellbeing:
+  # Mood runs 0-100. Under this value a creature is depressed: slower, and it will not mate.
+  depression-below: 25
+  depressed-speed-factor: 0.5
+  # Mood falls while hungry, thirsty or alone (nobody in sight), and when others die nearby.
+  # It recovers otherwise, and eating and mating lift it.
+  mood-drain-per-second: 1.0
+  mood-recovery-per-second: 0.6
+  # Mood lost by every creature within a few blocks of a death (double for a widowed partner).
+  grief-mood-loss: 18
+
+orientation:
+  # Share of creatures that pair with their own sex. They pair up and show hearts like
+  # any other pair, but no child is born. They have rainbow wool.
+  same-sex-chance: 0.1
+
+animation:
+  # Floating bar above each sheep showing energy, water and mood.
+  stat-bars: true
+  # While mating, the mounting partner is drawn as a tilted sheep model (an item
+  # display) instead of the flat sheep. Needs the resource pack in resourcepack/.
+  # Set to false to keep the plain flat pose without the pack.
+  tilted-mount: true
+
+water:
+  # Ponds are placed in the arena floor. Creatures drink when they stand in one.
+  ponds: 3
+  pond-radius: 3.5
+  # Hydration (0-100) lost per second, and gained per second while drinking.
+  thirst-per-second: 1.2
+  drink-per-second: 25
+  # Creatures look for water below this hydration (and put it before mating below half of it).
+  seek-below: 50
+  # Energy lost per second while hydration is 0.
+  dehydration-damage: 2.0
+
+wellbeing:
+  # Mood runs 0-100. Under this value a creature is depressed: slower, and it will not mate.
+  depression-below: 25
+  depressed-speed-factor: 0.5
+  # Mood falls while hungry, thirsty or alone (nobody in sight), and when others die nearby.
+  # It recovers otherwise, and eating and mating lift it.
+  mood-drain-per-second: 1.0
+  mood-recovery-per-second: 0.6
+  # Mood lost by every creature within a few blocks of a death (double for a widowed partner).
+  grief-mood-loss: 18
+
+orientation:
+  # Share of creatures that pair with their own sex. They pair up and show hearts like
+  # any other pair, but no child is born. They have rainbow wool.
+  same-sex-chance: 0.1
+
+animation:
+  # Floating bar above each sheep showing energy, water and mood.
+  stat-bars: true
+  # While mating, the mounting partner is drawn as a tilted sheep model (an item
+  # display) instead of the flat sheep. Needs the resource pack in resourcepack/.
+  # Set to false to keep the plain flat pose without the pack.
+  tilted-mount: true
+
+animation:
+  # While mating, the mounting partner is drawn as a tilted sheep model (an item
+  # display) instead of the flat sheep. Needs the resource pack in resourcepack/.
+  # Set to false to keep the plain flat pose without the pack.
+  tilted-mount: true
+
+animation:
+  # While mating, the mounting partner is drawn as a tilted sheep model (an item
+  # display) instead of the flat sheep. Needs the resource pack in resourcepack/.
+  # Set to false to keep the plain flat pose without the pack.
+  tilted-mount: true
+
+animation:
+  # While mating, the mounting partner is drawn as a tilted sheep model (an item
+  # display) instead of the flat sheep. Needs the resource pack in resourcepack/.
+  # Set to false to keep the plain flat pose without the pack.
+  tilted-mount: true
+
+animation:
+  # While mating, the mounting partner is drawn as a tilted sheep model (an item
+  # display) instead of the flat sheep. Needs the resource pack in resourcepack/.
+  # Set to false to keep the plain flat pose without the pack.
+  tilted-mount: true
+
+animation:
+  # While mating, the mounting partner is drawn as a tilted sheep model (an item
+  # display) instead of the flat sheep. Needs the resource pack in resourcepack/.
+  # Set to false to keep the plain flat pose without the pack.
+  tilted-mount: true
+
+animation:
+  # While mating, the mounting partner is drawn as a tilted sheep model (an item
+  # display) instead of the flat sheep. Needs the resource pack in resourcepack/.
+  # Set to false to keep the plain flat pose without the pack.
+  tilted-mount: true
+
+animation:
+  # While mating, the mounting partner is drawn as a tilted sheep model (an item
+  # display) instead of the flat sheep. Needs the resource pack in resourcepack/.
+  # Set to false to keep the plain flat pose without the pack.
+  tilted-mount: true

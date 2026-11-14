@@ -2,6 +2,7 @@ package dev.pumpkin.evosim.command;
 
 import dev.pumpkin.evosim.EvoSimPlugin;
 import dev.pumpkin.evosim.hud.Hud;
+import dev.pumpkin.evosim.inspect.FieldGuide;
 import dev.pumpkin.evosim.render.ColorMode;
 import dev.pumpkin.evosim.sim.Simulation;
 import dev.pumpkin.evosim.sim.Stats;
@@ -23,14 +24,16 @@ public final class EvoCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
             "create", "start", "stop", "reset", "spawn", "speed",
-            "color", "stats", "tp", "remove", "hud", "reload");
+            "color", "stats", "tp", "remove", "hud", "book", "reload");
 
     private final EvoSimPlugin plugin;
     private final Hud hud;
+    private final FieldGuide fieldGuide;
 
-    public EvoCommand(EvoSimPlugin plugin, Hud hud) {
+    public EvoCommand(EvoSimPlugin plugin, Hud hud, FieldGuide fieldGuide) {
         this.plugin = plugin;
         this.hud = hud;
+        this.fieldGuide = fieldGuide;
     }
 
     @Override
@@ -60,6 +63,7 @@ public final class EvoCommand implements CommandExecutor, TabCompleter {
             case "tp" -> teleport(sender);
             case "remove" -> remove(sender);
             case "hud" -> toggleHud(sender);
+            case "book" -> giveBook(sender);
             case "reload" -> {
                 plugin.reloadSimConfig();
                 ok(sender, "Config reloaded. It applies the next time you run /evo create.");
@@ -132,6 +136,8 @@ public final class EvoCommand implements CommandExecutor, TabCompleter {
         line(sender, String.format(Locale.ROOT, "Time %s, top generation %d", formatTime(s.elapsedSeconds()), s.maxGeneration()));
         line(sender, String.format(Locale.ROOT, "Mean speed %.2f, size %.2f, vision %.1f", s.meanSpeed(), s.meanSize(), s.meanVision()));
         line(sender, String.format(Locale.ROOT, "Diversity %.2f, births %d, deaths %d", s.diversity(), s.births(), s.deaths()));
+        line(sender, String.format(Locale.ROOT, "Mean water %.0f, mood %.0f, depressed %d, same-sex pairing %d",
+                s.meanHydration(), s.meanMood(), s.depressed(), s.sameSex()));
     }
 
     private void teleport(CommandSender sender) {
@@ -149,6 +155,15 @@ public final class EvoCommand implements CommandExecutor, TabCompleter {
         }
         plugin.removeSimulation();
         ok(sender, "Arena and creatures removed.");
+    }
+
+    private void giveBook(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            error(sender, "Only players can hold a field guide.");
+            return;
+        }
+        player.getInventory().addItem(fieldGuide.createItem());
+        ok(sender, "Right-click a sheep with the Field Guide to read its stats.");
     }
 
     private void toggleHud(CommandSender sender) {

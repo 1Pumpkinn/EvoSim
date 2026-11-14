@@ -12,8 +12,8 @@ import java.util.Set;
 import java.util.random.RandomGenerator;
 
 /**
- * The pure simulation: food spawning, foraging, mate seeking, sexual
- * reproduction with crossover and mutation, metabolism and death. It knows
+ * The pure simulation: food and water, foraging, mate seeking, sexual
+ * reproduction with crossover and mutation, metabolism, mood and death. It knows
  * nothing about Minecraft; changes are reported through a {@link Listener},
  * which makes it testable headless.
  */
@@ -39,6 +39,13 @@ public final class Ecosystem {
     private static final double EAT_MARGIN = 0.4;
     /** Extra distance beyond touching at which two mates pair up. */
     private static final double MATE_MARGIN = 0.8;
+    /** A creature in a pond keeps drinking until it reaches this hydration. */
+    private static final double DRINK_UNTIL = 95;
+    /** Mood gained when a pair finishes mating, when eating, and for each parent at a birth. */
+    private static final double MATING_MOOD = 15;
+    private static final double EATING_MOOD = 4;
+    /** Creatures within this many blocks of a death grieve. */
+    private static final double GRIEF_RADIUS = 8;
 
     private final SimConfig config;
     private final Listener listener;
@@ -47,6 +54,7 @@ public final class Ecosystem {
 
     private final List<Creature> creatures = new ArrayList<>();
     private final List<Food> foods = new ArrayList<>();
+    private final List<Pond> ponds;
 
     private long nextCreatureId = 1;
     private long nextFoodId = 1;
@@ -60,11 +68,14 @@ public final class Ecosystem {
         this.listener = listener;
         this.rng = rng;
         this.size = config.arena().size();
+        this.ponds = Pond.layout(config);
     }
 
     public List<Creature> creatures() { return Collections.unmodifiableList(creatures); }
 
     public List<Food> foods() { return Collections.unmodifiableList(foods); }
+
+    public List<Pond> ponds() { return Collections.unmodifiableList(ponds); }
 
     public boolean isExtinct() { return creatures.isEmpty(); }
 
@@ -78,7 +89,8 @@ public final class Ecosystem {
                     1.0 + rng.nextDouble() * (size - 2.0),
                     1.0 + rng.nextDouble() * (size - 2.0),
                     rng.nextDouble() * 2.0 * Math.PI,
-                    pop.startEnergy());
+                    pop.startEnergy(),
+                    rng.nextBoolean(), rng.nextDouble() < config.needs().sameSexChance());
             c.advanceAge(pop.maturitySeconds()); // founders start as adults
             creatures.add(c);
             listener.creatureBorn(c);
@@ -105,7 +117,9 @@ public final class Ecosystem {
         pairUp();
         progressMating(h);
         eat();
+        drink(h);
         metabolize(h);
+        updateMood(h);
         cull();
         elapsed += h;
     }
@@ -132,16 +146,60 @@ public final class Ecosystem {
     private boolean isReady(Creature c) {
         return !c.isMating()
                 && c.isAdult(config.population().maturitySeconds())
-                && c.energy() >= config.population().reproductionThreshold();
+                && c.energy() >= config.population().reproductionThreshold()
+                && !isDepressed(c);
+    }
+
+    private boolean isDepressed(Creature c) {
+        return c.mood() < config.needs().depressionBelow();
+    }
+
+    /** Opposite sexes pair up, or the same sex for creatures that pair with their own. */
+    private static boolean compatible(Creature a, Creature b) {
+        if (a.isSameSex() != b.isSameSex()) return false;
+        return a.isSameSex() ? a.isFemale() == b.isFemale() : a.isFemale() != b.isFemale();
+    }
+
+    private boolean isInPond(Creature c) {
+        for (Pond p : ponds) {
+            if (p.contains(c.x(), c.z())) return true;
+        }
+        return false;
+    }
+
+    /** Standing in a pond and not full yet: stays put and drinks. */
+    private boolean isDrinking(Creature c) {
+        return c.hydration() < DRINK_UNTIL && isInPond(c);
+    }
+
+    /** Nearest pond whose edge is within the creature's vision. */
+    private Pond nearestPond(Creature c) {
+        double vision = c.genome().vision();
+        double best = vision;
+        Pond nearest = null;
+        for (Pond p : ponds) {
+            double d = p.edgeDistance(c.x(), c.z());
+            if (d <= best) {
+                best = d;
+                nearest = p;
+            }
+        }
+        return nearest;
     }
 
     private void steerAndMove(double h) {
         for (Creature c : creatures) {
-            if (c.isMating()) continue; // paired creatures stay put
+            if (c.isMating() || isDrinking(c)) continue; // paired or drinking creatures stay put
 
             double heading = c.heading();
+            SimConfig.Needs needs = config.needs();
+            boolean thirsty = c.hydration() < needs.seekBelow();
+            boolean parched = c.hydration() < needs.seekBelow() * 0.5;
+            Pond pond = thirsty ? nearestPond(c) : null;
             Creature mate = isReady(c) ? nearestMate(c) : null;
-            if (mate != null) {
+            if (pond != null && (parched || mate == null)) {
+                heading = Math.atan2(pond.z() - c.z(), pond.x() - c.x());
+            } else if (mate != null) {
                 heading = Math.atan2(mate.z() - c.z(), mate.x() - c.x());
             } else {
                 Food target = nearestFood(c);
@@ -152,7 +210,7 @@ public final class Ecosystem {
                 }
             }
 
-            double distance = c.genome().speed() * h;
+            double distance = c.genome().speed() * h * (isDepressed(c) ? needs.depressedSpeedFactor() : 1.0);
             double nx = c.x() + Math.cos(heading) * distance;
             double nz = c.z() + Math.sin(heading) * distance;
 
@@ -199,7 +257,7 @@ public final class Ecosystem {
         double best = vision * vision;
         Creature nearest = null;
         for (Creature other : creatures) {
-            if (other == c || !isReady(other)) continue;
+            if (other == c || !isReady(other) || !compatible(c, other)) continue;
             double dx = other.x() - c.x();
             double dz = other.z() - c.z();
             double d2 = dx * dx + dz * dz;
@@ -217,7 +275,7 @@ public final class Ecosystem {
         for (Creature a : creatures) {
             if (!isReady(a)) continue;
             for (Creature b : creatures) {
-                if (b == a || !isReady(b)) continue;
+                if (b == a || !isReady(b) || !compatible(a, b)) continue;
                 double reach = a.radius() + b.radius() + MATE_MARGIN;
                 double dx = b.x() - a.x();
                 double dz = b.z() - a.z();
@@ -246,7 +304,11 @@ public final class Ecosystem {
             Creature b = a.mate();
             a.endMating();
             b.endMating();
-            giveBirth(a, b);
+            a.addMood(MATING_MOOD);
+            b.addMood(MATING_MOOD);
+            if (!a.isSameSex()) { // same-sex pairs bond but have no child
+                giveBirth(a, b);
+            }
         }
     }
 
@@ -267,7 +329,8 @@ public final class Ecosystem {
                 clamp((a.x() + b.x()) / 2.0, 0.5, size - 0.5),
                 clamp((a.z() + b.z()) / 2.0, 0.5, size - 0.5),
                 rng.nextDouble() * 2.0 * Math.PI,
-                pop.reproductionCost());
+                pop.reproductionCost(),
+                rng.nextBoolean(), rng.nextDouble() < config.needs().sameSexChance());
         creatures.add(child);
         births++;
         listener.creatureBorn(child);
@@ -292,6 +355,7 @@ public final class Ecosystem {
                 double dz = f.z() - c.z();
                 if (dx * dx + dz * dz <= reach2) {
                     c.addEnergy(f.energy());
+                    c.addMood(EATING_MOOD);
                     eaten.add(f);
                     break;
                 }
@@ -304,11 +368,54 @@ public final class Ecosystem {
         }
     }
 
+    private void drink(double h) {
+        double rate = config.needs().drinkRate();
+        for (Creature c : creatures) {
+            if (!c.isMating() && isInPond(c)) {
+                c.addHydration(rate * h);
+            }
+        }
+    }
+
     private void metabolize(double h) {
+        SimConfig.Needs needs = config.needs();
         for (Creature c : creatures) {
             c.addEnergy(-c.costPerSecond(config.energy()) * h);
+            c.addHydration(-needs.thirstDrain() * h);
+            if (c.hydration() <= 0) {
+                c.addEnergy(-needs.dehydrationDamage() * h); // dehydration
+            }
             c.advanceAge(h);
         }
+    }
+
+    /** Mood falls while hungry, thirsty or alone, and recovers when all is well. */
+    private void updateMood(double h) {
+        SimConfig.Needs needs = config.needs();
+        double hungry = config.population().reproductionThreshold() * 0.35;
+        for (Creature c : creatures) {
+            boolean unmet = c.energy() < hungry || c.hydration() < 25;
+            boolean alone = isAlone(c);
+            double delta;
+            if (unmet || alone) {
+                delta = -needs.moodDrain() * ((unmet ? 1.5 : 0) + (alone ? 1.0 : 0));
+            } else {
+                delta = needs.moodRecovery();
+            }
+            c.addMood(delta * h);
+        }
+    }
+
+    /** Nobody else within the creature's vision. */
+    private boolean isAlone(Creature c) {
+        double v2 = c.genome().vision() * c.genome().vision();
+        for (Creature other : creatures) {
+            if (other == c) continue;
+            double dx = other.x() - c.x();
+            double dz = other.z() - c.z();
+            if (dx * dx + dz * dz <= v2) return false;
+        }
+        return true;
     }
 
     private void cull() {
@@ -319,10 +426,19 @@ public final class Ecosystem {
         }
         if (dead.isEmpty()) return;
         creatures.removeAll(dead);
+        double grief = config.needs().griefMoodLoss();
         for (Creature c : dead) {
+            for (Creature other : creatures) {
+                double dx = other.x() - c.x();
+                double dz = other.z() - c.z();
+                if (dx * dx + dz * dz <= GRIEF_RADIUS * GRIEF_RADIUS) {
+                    other.addMood(-grief);
+                }
+            }
             Creature partner = c.mate();
             if (partner != null && partner.mate() == c) {
                 partner.endMating(); // widowed mid-mating
+                partner.addMood(-grief);
             }
             c.endMating();
             deaths++;
@@ -335,8 +451,16 @@ public final class Ecosystem {
         double speed = 0;
         double bodySize = 0;
         double vision = 0;
+        double hydration = 0;
+        double mood = 0;
+        int depressed = 0;
+        int sameSex = 0;
         int maxGeneration = 0;
         for (Creature c : creatures) {
+            hydration += c.hydration();
+            mood += c.mood();
+            if (isDepressed(c)) depressed++;
+            if (c.isSameSex()) sameSex++;
             speed += c.genome().speed();
             bodySize += c.genome().size();
             vision += c.genome().vision();
@@ -357,7 +481,8 @@ public final class Ecosystem {
 
         return new Stats(n, foods.size(), maxGeneration,
                 n == 0 ? 0 : speed / n, n == 0 ? 0 : bodySize / n, n == 0 ? 0 : vision / n,
-                diversity, births, deaths, elapsed);
+                diversity, births, deaths, elapsed,
+                n == 0 ? 0 : hydration / n, n == 0 ? 0 : mood / n, depressed, sameSex);
     }
 
     private static double clamp(double v, double min, double max) {

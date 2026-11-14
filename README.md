@@ -2,7 +2,7 @@
 
 Real-time natural selection inside Minecraft. Creatures are real sheep with
 heritable traits (speed, size, vision, wool colour). They forage for food in
-an arena and pay energy for their traits. Well-fed adults find a mate, hop
+an arena and pay energy for their traits. Well-fed adults find a mate, stand
 together under floating hearts, and have a child whose genes are a mix of
 both parents plus mutation. Newborns grow up before they can mate. Watch the
 population adapt.
@@ -26,8 +26,26 @@ population adapt.
 | `/evo stats` | Population, mean traits, diversity, births and deaths |
 | `/evo tp` | Teleport to the arena centre |
 | `/evo hud` | Toggle the stats boss bar |
+| `/evo book` | Give yourself the Field Guide (right-click a sheep to read its stats) |
 | `/evo remove` | Remove the arena and all creatures |
 | `/evo reload` | Reload config.yml (applies to the next `/evo create`) |
+
+## Needs, mood and orientation
+
+- **Thirst:** ponds are built into the arena floor. Hydration drains over time; thirsty
+  sheep look for a pond and stand in it to drink. At zero they lose energy.
+- **Depression:** mood falls while hungry, thirsty, alone or when others die nearby, and recovers otherwise.
+  Depressed sheep are slower and will not mate. Eating and mating lift mood.
+- **Orientation:** some sheep pair with their own sex. They have rainbow wool, pair up and
+  show hearts like any pair, but no child is born. Rate: `orientation.same-sex-chance`.
+- **Stat bars:** a floating bar over each sheep (`animation.stat-bars`).
+- **Field Guide:** `/evo book`, then right-click a sheep for its full stats.
+
+## Tilted mating pose
+
+The mounting partner is drawn as a tilted model, which needs the resource pack in
+`resourcepack/` (see its README). Set `animation.tilted-mount: false` in
+`config.yml` to use the plain flat pose without it.
 
 ## Requirements
 
