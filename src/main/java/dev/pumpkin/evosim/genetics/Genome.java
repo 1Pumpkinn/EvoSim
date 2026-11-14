@@ -79,6 +79,15 @@ public final class Genome {
         return new Genome(v);
     }
 
+    /** Mixes two parents: each trait is inherited whole from one parent or the other. */
+    public static Genome crossover(Genome a, Genome b, RandomGenerator rng) {
+        double[] v = new double[TRAITS.length];
+        for (Trait t : TRAITS) {
+            v[t.ordinal()] = rng.nextBoolean() ? a.get(t) : b.get(t);
+        }
+        return new Genome(v);
+    }
+
     /**
      * Returns a mutated copy. Each trait mutates with probability {@code rate}
      * by a Gaussian step whose std. deviation is {@code strength} of the range.

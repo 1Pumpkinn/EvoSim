@@ -12,9 +12,10 @@ import java.util.Set;
 import java.util.random.RandomGenerator;
 
 /**
- * The pure simulation: food spawning, foraging, metabolism, reproduction
- * with mutation, and death. It knows nothing about Minecraft; changes are
- * reported through a {@link Listener}, which makes it testable headless.
+ * The pure simulation: food spawning, foraging, mate seeking, sexual
+ * reproduction with crossover and mutation, metabolism and death. It knows
+ * nothing about Minecraft; changes are reported through a {@link Listener},
+ * which makes it testable headless.
  */
 public final class Ecosystem {
 
@@ -27,12 +28,17 @@ public final class Ecosystem {
         void foodSpawned(Food food);
 
         void foodEaten(Food food);
+
+        /** Fired right after {@link #creatureBorn} for a child of two parents. */
+        default void offspringBorn(Creature child, Creature parentA, Creature parentB) {}
     }
 
     /** Heading change per sqrt(second) while wandering without a target. */
     private static final double WANDER_TURN = 1.6;
     /** Extra reach beyond the body radius when grabbing food. */
     private static final double EAT_MARGIN = 0.4;
+    /** Extra distance beyond touching at which two mates pair up. */
+    private static final double MATE_MARGIN = 0.8;
 
     private final SimConfig config;
     private final Listener listener;
@@ -62,7 +68,7 @@ public final class Ecosystem {
 
     public boolean isExtinct() { return creatures.isEmpty(); }
 
-    /** Adds up to {@code count} founder creatures, respecting the population cap. Returns how many. */
+    /** Adds up to {@code count} adult founders, respecting the population cap. Returns how many. */
     public int spawnFounders(int count) {
         SimConfig.Population pop = config.population();
         int n = Math.max(0, Math.min(count, pop.max() - creatures.size()));
@@ -73,6 +79,7 @@ public final class Ecosystem {
                     1.0 + rng.nextDouble() * (size - 2.0),
                     rng.nextDouble() * 2.0 * Math.PI,
                     pop.startEnergy());
+            c.advanceAge(pop.maturitySeconds()); // founders start as adults
             creatures.add(c);
             listener.creatureBorn(c);
         }
@@ -95,9 +102,10 @@ public final class Ecosystem {
     public void step(double h) {
         spawnFood(h);
         steerAndMove(h);
+        pairUp();
+        progressMating(h);
         eat();
         metabolize(h);
-        reproduce();
         cull();
         elapsed += h;
     }
@@ -120,14 +128,28 @@ public final class Ecosystem {
         }
     }
 
+    /** Adult, well-fed and not already paired: looking for a mate. */
+    private boolean isReady(Creature c) {
+        return !c.isMating()
+                && c.isAdult(config.population().maturitySeconds())
+                && c.energy() >= config.population().reproductionThreshold();
+    }
+
     private void steerAndMove(double h) {
         for (Creature c : creatures) {
+            if (c.isMating()) continue; // paired creatures stay put
+
             double heading = c.heading();
-            Food target = nearestFood(c);
-            if (target != null) {
-                heading = Math.atan2(target.z() - c.z(), target.x() - c.x());
+            Creature mate = isReady(c) ? nearestMate(c) : null;
+            if (mate != null) {
+                heading = Math.atan2(mate.z() - c.z(), mate.x() - c.x());
             } else {
-                heading += rng.nextGaussian() * WANDER_TURN * Math.sqrt(h);
+                Food target = nearestFood(c);
+                if (target != null) {
+                    heading = Math.atan2(target.z() - c.z(), target.x() - c.x());
+                } else {
+                    heading += rng.nextGaussian() * WANDER_TURN * Math.sqrt(h);
+                }
             }
 
             double distance = c.genome().speed() * h;
@@ -172,6 +194,86 @@ public final class Ecosystem {
         return nearest;
     }
 
+    private Creature nearestMate(Creature c) {
+        double vision = c.genome().vision();
+        double best = vision * vision;
+        Creature nearest = null;
+        for (Creature other : creatures) {
+            if (other == c || !isReady(other)) continue;
+            double dx = other.x() - c.x();
+            double dz = other.z() - c.z();
+            double d2 = dx * dx + dz * dz;
+            if (d2 <= best) {
+                best = d2;
+                nearest = other;
+            }
+        }
+        return nearest;
+    }
+
+    /** Ready creatures that end up close to each other become a mating pair. */
+    private void pairUp() {
+        double seconds = config.population().matingSeconds();
+        for (Creature a : creatures) {
+            if (!isReady(a)) continue;
+            for (Creature b : creatures) {
+                if (b == a || !isReady(b)) continue;
+                double reach = a.radius() + b.radius() + MATE_MARGIN;
+                double dx = b.x() - a.x();
+                double dz = b.z() - a.z();
+                if (dx * dx + dz * dz <= reach * reach) {
+                    a.beginMating(b, seconds);
+                    b.beginMating(a, seconds);
+                    a.setHeading(Math.atan2(dz, dx));
+                    b.setHeading(Math.atan2(-dz, -dx));
+                    break;
+                }
+            }
+        }
+    }
+
+    private void progressMating(double h) {
+        List<Creature> finished = new ArrayList<>();
+        for (Creature c : creatures) {
+            if (!c.isMating()) continue;
+            c.advanceMating(h);
+            // Handle each pair once, from the lower id.
+            if (c.matingRemaining() <= 0 && c.id() < c.mate().id()) {
+                finished.add(c);
+            }
+        }
+        for (Creature a : finished) {
+            Creature b = a.mate();
+            a.endMating();
+            b.endMating();
+            giveBirth(a, b);
+        }
+    }
+
+    private void giveBirth(Creature a, Creature b) {
+        SimConfig.Population pop = config.population();
+        SimConfig.Evolution evo = config.evolution();
+        double share = pop.reproductionCost() / 2.0;
+        if (creatures.size() >= pop.max() || a.energy() < share || b.energy() < share) {
+            return; // no room or a parent ran low on energy while paired
+        }
+
+        a.addEnergy(-share);
+        b.addEnergy(-share);
+        Genome genome = Genome.crossover(a.genome(), b.genome(), rng)
+                .mutate(rng, evo.mutationRate(), evo.mutationStrength());
+        Creature child = new Creature(nextCreatureId++, genome,
+                Math.max(a.generation(), b.generation()) + 1,
+                clamp((a.x() + b.x()) / 2.0, 0.5, size - 0.5),
+                clamp((a.z() + b.z()) / 2.0, 0.5, size - 0.5),
+                rng.nextDouble() * 2.0 * Math.PI,
+                pop.reproductionCost());
+        creatures.add(child);
+        births++;
+        listener.creatureBorn(child);
+        listener.offspringBorn(child, a, b);
+    }
+
     /** Bigger creatures get first pick, so size wins contested food. */
     private void eat() {
         if (foods.isEmpty()) return;
@@ -181,6 +283,7 @@ public final class Ecosystem {
 
         Set<Food> eaten = new HashSet<>();
         for (Creature c : order) {
+            if (c.isMating()) continue;
             double reach = c.radius() + EAT_MARGIN;
             double reach2 = reach * reach;
             for (Food f : foods) {
@@ -208,34 +311,6 @@ public final class Ecosystem {
         }
     }
 
-    private void reproduce() {
-        SimConfig.Population pop = config.population();
-        SimConfig.Evolution evo = config.evolution();
-        int room = pop.max() - creatures.size();
-        if (room <= 0) return;
-
-        List<Creature> born = new ArrayList<>();
-        for (Creature parent : creatures) {
-            if (born.size() >= room) break;
-            if (parent.energy() < pop.reproductionThreshold()) continue;
-
-            Genome genome = parent.genome().mutate(rng, evo.mutationRate(), evo.mutationStrength());
-            parent.addEnergy(-pop.reproductionCost());
-
-            double angle = rng.nextDouble() * 2.0 * Math.PI;
-            double cx = clamp(parent.x() + Math.cos(angle) * 0.6, 0.5, size - 0.5);
-            double cz = clamp(parent.z() + Math.sin(angle) * 0.6, 0.5, size - 0.5);
-            born.add(new Creature(nextCreatureId++, genome, parent.generation() + 1,
-                    cx, cz, angle, pop.reproductionCost()));
-        }
-
-        for (Creature child : born) {
-            creatures.add(child);
-            births++;
-            listener.creatureBorn(child);
-        }
-    }
-
     private void cull() {
         double maxAge = config.population().maxAgeSeconds();
         List<Creature> dead = new ArrayList<>();
@@ -245,6 +320,11 @@ public final class Ecosystem {
         if (dead.isEmpty()) return;
         creatures.removeAll(dead);
         for (Creature c : dead) {
+            Creature partner = c.mate();
+            if (partner != null && partner.mate() == c) {
+                partner.endMating(); // widowed mid-mating
+            }
+            c.endMating();
             deaths++;
             listener.creatureDied(c);
         }

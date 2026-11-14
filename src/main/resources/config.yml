@@ -1,8 +1,8 @@
 # EvoSim configuration. Restart (or /evo reload once commands exist) to apply.
 
 simulation:
-  # Run the simulation every N server ticks (2 = 10 updates/sec).
-  tick-interval: 2
+  # Run the simulation every N server ticks (1 = 20 updates/sec, smoothest mob motion).
+  tick-interval: 1
   # Simulation speed multiplier. 2.0 = twice as fast as real time.
   time-scale: 1.0
 
@@ -15,18 +15,23 @@ arena:
 
 population:
   initial: 30
-  max: 300
+  # Every creature is a real mob entity, so keep this moderate.
+  max: 150
   # Energy a founder creature starts with.
   start-energy: 60
-  # A creature reproduces once its energy reaches this value...
+  # Two adults whose energy reaches this value look for each other and mate...
   reproduction-threshold: 120
-  # ...and gives this much energy to its child.
+  # ...and the child starts with this much energy, paid half by each parent.
   reproduction-cost: 50
   # Creatures die of old age after this many simulated seconds.
   max-age-seconds: 300
+  # Newborns grow from 40% to full size over this long and cannot mate until then.
+  maturity-seconds: 15
+  # How long a pair stays together (hearts and hopping) before the child is born.
+  mating-seconds: 2.5
 
 food:
-  spawn-per-second: 4.0
+  spawn-per-second: 12.0
   max: 150
   # Energy gained from one piece of food.
   energy: 30
@@ -35,8 +40,8 @@ food:
 #   base + speed-cost * speed^2 + size-cost * size^3 + vision-cost * vision
 energy:
   base-cost: 0.6
-  speed-cost: 0.05
-  size-cost: 0.8
+  speed-cost: 0.2
+  size-cost: 1.5
   vision-cost: 0.04
 
 evolution:

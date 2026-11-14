@@ -1,5 +1,6 @@
 plugins {
     java
+    id("xyz.jpenilla.run-paper") version "2.3.1"
 }
 
 group = "dev.pumpkin"
@@ -28,5 +29,12 @@ tasks {
         inputs.properties(props)
         filteringCharset = "UTF-8"
         filesMatching("plugin.yml") { expand(props) }
+    }
+    runServer {
+        minecraftVersion("26.2")
+        javaLauncher.set(project.javaToolchains.launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(25))
+        })
+        jvmArgs("-Xms2G", "-Xmx2G")
     }
 }

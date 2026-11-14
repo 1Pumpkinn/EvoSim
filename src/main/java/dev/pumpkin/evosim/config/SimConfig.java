@@ -21,7 +21,7 @@ public record SimConfig(
 
     public record Population(int initial, int max, double startEnergy,
                              double reproductionThreshold, double reproductionCost,
-                             double maxAgeSeconds) {}
+                             double maxAgeSeconds, double maturitySeconds, double matingSeconds) {}
 
     public record Food(double spawnPerSecond, int max, double energy) {}
 
@@ -31,7 +31,7 @@ public record SimConfig(
 
     public static SimConfig load(FileConfiguration cfg, Logger log) {
         Simulation simulation = new Simulation(
-                clamp(cfg.getInt("simulation.tick-interval", 2), 1, 20),
+                clamp(cfg.getInt("simulation.tick-interval", 1), 1, 20),
                 clamp(cfg.getDouble("simulation.time-scale", 1.0), 0.1, 20.0));
 
         Arena arena = new Arena(
@@ -48,21 +48,23 @@ public record SimConfig(
         }
         Population population = new Population(
                 clamp(cfg.getInt("population.initial", 30), 1, 1000),
-                clamp(cfg.getInt("population.max", 300), 1, 2000),
+                clamp(cfg.getInt("population.max", 150), 1, 2000),
                 clamp(cfg.getDouble("population.start-energy", 60), 1, 100_000),
                 threshold,
                 cost,
-                clamp(cfg.getDouble("population.max-age-seconds", 300), 10, 100_000));
+                clamp(cfg.getDouble("population.max-age-seconds", 300), 10, 100_000),
+                clamp(cfg.getDouble("population.maturity-seconds", 15), 1, 1000),
+                clamp(cfg.getDouble("population.mating-seconds", 2.5), 0.5, 60));
 
         Food food = new Food(
-                clamp(cfg.getDouble("food.spawn-per-second", 4.0), 0, 1000),
+                clamp(cfg.getDouble("food.spawn-per-second", 12.0), 0, 1000),
                 clamp(cfg.getInt("food.max", 150), 1, 5000),
                 clamp(cfg.getDouble("food.energy", 30), 1, 100_000));
 
         Energy energy = new Energy(
                 clamp(cfg.getDouble("energy.base-cost", 0.6), 0, 1000),
-                clamp(cfg.getDouble("energy.speed-cost", 0.05), 0, 1000),
-                clamp(cfg.getDouble("energy.size-cost", 0.8), 0, 1000),
+                clamp(cfg.getDouble("energy.speed-cost", 0.2), 0, 1000),
+                clamp(cfg.getDouble("energy.size-cost", 1.5), 0, 1000),
                 clamp(cfg.getDouble("energy.vision-cost", 0.04), 0, 1000));
 
         Evolution evolution = new Evolution(

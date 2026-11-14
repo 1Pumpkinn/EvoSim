@@ -3,58 +3,99 @@ package dev.pumpkin.evosim.render;
 import dev.pumpkin.evosim.arena.Arena;
 import dev.pumpkin.evosim.genetics.Genome;
 import dev.pumpkin.evosim.sim.Creature;
-import org.bukkit.entity.BlockDisplay;
-import org.bukkit.entity.Display;
-import org.bukkit.util.Transformation;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
+import org.bukkit.Location;
+import org.bukkit.Particle;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.entity.Sheep;
 
 /**
- * Renders one creature as a glowing, coloured cube. Moving it every
- * simulation step with a matching teleport duration makes the client
- * interpolate the motion smoothly.
+ * Renders one creature as a real sheep. Its AI is off, so the simulation
+ * drives it by teleporting every step; the client turns that movement into
+ * the normal walking animation. Wool colour shows a gene, the body scale is
+ * the size gene (newborns grow up), and mating pairs hop and shed hearts.
  */
 public final class CreatureView {
 
+    /** Newborns start at this fraction of their adult size. */
+    private static final double BABY_SCALE = 0.4;
+
     private final Arena arena;
     private final Creature creature;
-    private final BlockDisplay display;
+    private final double maturitySeconds;
+    private final Sheep sheep;
 
-    public CreatureView(Arena arena, Creature creature, ColorMode mode, int tickInterval) {
+    private double appliedScale = -1;
+    private int updates;
+
+    public CreatureView(Arena arena, Creature creature, ColorMode mode, double maturitySeconds) {
         this.arena = arena;
         this.creature = creature;
+        this.maturitySeconds = maturitySeconds;
 
         Genome genome = creature.genome();
-        float s = (float) genome.size();
-        this.display = arena.world().spawn(arena.toLocation(creature.x(), creature.z()), BlockDisplay.class, d -> {
-            d.setBlock(mode.block(genome).createBlockData());
-            // Shift by half the scale so the cube is centred on the entity.
-            d.setTransformation(new Transformation(
-                    new Vector3f(-s / 2f, 0f, -s / 2f), new Quaternionf(),
-                    new Vector3f(s, s, s), new Quaternionf()));
-            d.setTeleportDuration(Math.max(0, Math.min(59, tickInterval)));
-            d.setBrightness(new Display.Brightness(15, 15));
-            d.setGlowing(true);
-            d.setGlowColorOverride(mode.color(genome));
-            d.setPersistent(false);
-            d.addScoreboardTag(Arena.ENTITY_TAG);
+        this.sheep = arena.world().spawn(location(), Sheep.class, s -> {
+            s.setAI(false);
+            s.setGravity(false);
+            s.setSilent(true);
+            s.setInvulnerable(true);
+            s.setCollidable(false);
+            s.setCanPickupItems(false);
+            s.setRemoveWhenFarAway(false);
+            s.setPersistent(false);
+            s.setColor(mode.dye(genome));
+            s.addScoreboardTag(Arena.ENTITY_TAG);
         });
+        applyScale();
     }
 
-    /** Moves the display to the creature's current simulation position. */
+    /** Moves the mob to the creature's simulated position and plays mating effects. */
     public void update() {
-        if (display.isValid()) {
-            display.teleport(arena.toLocation(creature.x(), creature.z()));
+        if (!sheep.isValid()) return;
+        applyScale();
+        sheep.teleport(location());
+
+        if (creature.isMating() && updates++ % 4 == 0) {
+            arena.world().spawnParticle(Particle.HEART, location().add(0, sheep.getHeight() + 0.2, 0),
+                    1, 0.25, 0.1, 0.25, 0);
         }
     }
 
+    /** A burst of hearts, played when this creature is born. */
+    public void playBirthEffect() {
+        if (!sheep.isValid()) return;
+        arena.world().spawnParticle(Particle.HEART, location().add(0, sheep.getHeight() + 0.3, 0),
+                8, 0.4, 0.3, 0.4, 0);
+    }
+
     public void recolor(ColorMode mode) {
-        Genome genome = creature.genome();
-        display.setBlock(mode.block(genome).createBlockData());
-        display.setGlowColorOverride(mode.color(genome));
+        sheep.setColor(mode.dye(creature.genome()));
     }
 
     public void remove() {
-        display.remove();
+        sheep.remove();
+    }
+
+    private Location location() {
+        Location loc = arena.toLocation(creature.x(), creature.z());
+        // Minecraft yaw 0 faces +z; the simulation heading 0 faces +x.
+        loc.setYaw((float) (Math.toDegrees(creature.heading()) - 90.0));
+        if (creature.isMating()) {
+            loc.add(0, 0.25 * Math.abs(Math.sin(creature.age() * 9.0)), 0); // happy hop
+        }
+        return loc;
+    }
+
+    /** Grows from baby to adult size, scaled by the size gene. */
+    private void applyScale() {
+        double growth = Math.min(1.0, BABY_SCALE + (1.0 - BABY_SCALE) * creature.age() / maturitySeconds);
+        double scale = creature.genome().size() * growth;
+        if (Math.abs(scale - appliedScale) > 0.005) {
+            AttributeInstance attribute = sheep.getAttribute(Attribute.SCALE);
+            if (attribute != null) {
+                attribute.setBaseValue(scale);
+            }
+            appliedScale = scale;
+        }
     }
 }

@@ -20,6 +20,9 @@ public final class Creature {
     private double energy;
     private double age;
 
+    private Creature mate;
+    private double matingRemaining;
+
     public Creature(long id, Genome genome, int generation,
                     double x, double z, double heading, double energy) {
         this.id = id;
@@ -63,6 +66,27 @@ public final class Creature {
     public void addEnergy(double delta) { this.energy += delta; }
 
     public void advanceAge(double seconds) { this.age += seconds; }
+
+    public boolean isAdult(double maturitySeconds) { return age >= maturitySeconds; }
+
+    /** True while paired up with a partner, waiting for the child to be born. */
+    public boolean isMating() { return mate != null; }
+
+    public Creature mate() { return mate; }
+
+    public double matingRemaining() { return matingRemaining; }
+
+    public void beginMating(Creature partner, double seconds) {
+        this.mate = partner;
+        this.matingRemaining = seconds;
+    }
+
+    public void advanceMating(double seconds) { this.matingRemaining -= seconds; }
+
+    public void endMating() {
+        this.mate = null;
+        this.matingRemaining = 0;
+    }
 
     public boolean isDead(double maxAgeSeconds) {
         return energy <= 0 || age >= maxAgeSeconds;

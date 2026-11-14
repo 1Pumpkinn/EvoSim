@@ -137,7 +137,13 @@ public final class Simulation implements Ecosystem.Listener {
     @Override
     public void creatureBorn(Creature creature) {
         creatureViews.put(creature,
-                new CreatureView(arena, creature, colorMode, config.simulation().tickInterval()));
+                new CreatureView(arena, creature, colorMode, config.population().maturitySeconds()));
+    }
+
+    @Override
+    public void offspringBorn(Creature child, Creature parentA, Creature parentB) {
+        CreatureView view = creatureViews.get(child);
+        if (view != null) view.playBirthEffect();
     }
 
     @Override
