@@ -1,5 +1,6 @@
 package dev.pumpkin.evosim.inspect;
 
+import dev.pumpkin.evosim.sim.Adaptation;
 import dev.pumpkin.evosim.sim.DeathTally;
 import dev.pumpkin.evosim.sim.Simulation;
 import io.papermc.paper.dialog.Dialog;
@@ -45,6 +46,29 @@ public final class DeathStatsDialog {
                                 t.count(), share * 100, t.meanAgeSeconds()), NamedTextColor.GRAY))
                         .build()));
             }
+        }
+
+        Adaptation adaptation = sim.adaptation();
+        if (adaptation.enabled()) {
+            List<Component> lines = new ArrayList<>();
+            for (Adaptation.Pressure p : Adaptation.Pressure.values()) {
+                double level = adaptation.level(p);
+                if (level < 0.05) continue;
+                lines.add(Component.text()
+                        .append(Component.text(p.label(), NamedTextColor.WHITE, TextDecoration.BOLD))
+                        .append(Component.text(String.format(Locale.ROOT, " (%.0f%% of recent deaths)", level * 100),
+                                NamedTextColor.GRAY))
+                        .appendNewline()
+                        .append(Component.text("Newborns are getting better at: " + p.adaptsTo(),
+                                NamedTextColor.GREEN))
+                        .build());
+            }
+            body.add(DialogBody.plainMessage(Component.text("Adapting", NamedTextColor.GOLD)
+                    .decorate(TextDecoration.BOLD)));
+            if (lines.isEmpty()) {
+                body.add(DialogBody.plainMessage(Component.text("Nothing in particular yet.", NamedTextColor.GRAY)));
+            }
+            for (Component line : lines) body.add(DialogBody.plainMessage(line));
         }
 
         Dialog dialog = Dialog.create(builder -> builder.empty()

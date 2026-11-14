@@ -46,6 +46,13 @@ food:
   max: 1600
   # Energy gained from one piece of food.
   energy: 30
+  # Rare golden apples: a small share of spawns, worth much more, and they also give water and
+  # mood. They can appear anywhere, so they are relatively commoner in deserts and tundra.
+  rare-chance: 0.04
+  # Most rare apples lying around at once.
+  rare-max: 100
+  rare-energy-multiplier: 4.0
+  rare-hydration: 30
 
 # Energy drained per simulated second:
 #   base + speed-cost * speed^2 + size-cost * size^3 + vision-cost * vision
@@ -62,6 +69,26 @@ evolution:
   mutation-strength: 0.08
   # How narrow the starting gene pool is (0 = identical, 1 = full range).
   initial-spread: 0.3
+  # Chance that a newborn gains a brand new, procedurally generated special mutation (a random
+  # benefit, usually with a random drawback). Scaled by the newborn's mutability gene. 0 turns them off.
+  special-mutation-chance: 0.06
+  # Chance that each special mutation of a parent is passed on to a child.
+  special-mutation-inheritance: 0.5
+
+adaptation:
+  # Sheep slowly adapt to what has been killing them. Recent deaths are tallied by cause (and
+  # biome); the bigger the share one cause has, the more newborns are nudged towards genes that
+  # help against it (starvation: efficiency, digestion, vision; thirst: thirst resistance, vision;
+  # starving in tundra: cold resistance; thirst in desert: heat tolerance; forest/swamp: footing).
+  enabled: true
+  # Chance a newborn gets a nudge from a pressure at full strength.
+  chance: 0.4
+  # Size of a nudge as a fraction of the gene's range.
+  strength: 0.06
+  # Deaths fade from memory with this half-life, so the population stops adapting when a cause stops.
+  half-life-seconds: 120
+  # Recent deaths needed before pressure counts fully; below this it is scaled down.
+  deaths-for-full-pressure: 30
 
 biomes:
   # The arena is split into patches of grassland, forest, desert, tundra and swamp.

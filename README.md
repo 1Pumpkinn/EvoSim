@@ -51,13 +51,55 @@ population adapt.
 ## Mutations and breeding rest
 
 - **Genes:** besides speed, size and vision, sheep carry lifespan, metabolism (upkeep), thirst
-  rate, grief sensitivity and ram rest time. They cross over and mutate like the others.
-- **Mutations:** a gene in the outer quarter of its range is shown as a mutation (Swift, Giant,
-  Long-lived, Efficient, Camel-like, Stoic, Quick recovery and their opposites) on the stat bar
-  and in the Field Guide's Mutations page.
+  rate, grief sensitivity and ram rest time, plus cold resistance, heat tolerance, sure-footedness,
+  digestion and mutability. They cross over and mutate like the others. Resistances and rich
+  digestion cost a little extra upkeep everywhere, so they only pay off where they are needed.
+- **Gene marks:** a gene in the outer quarter of its range is shown as a mutation (Swift, Giant,
+  Long-lived, Efficient, Camel-like, Stoic, Quick recovery, Frostproof, Sun-hardened, Sure-footed,
+  Rich digestion, Volatile and their opposites) on the stat bar and in the Field Guide.
+- **Special mutations (procedurally generated):** when a sheep is born it has a small chance
+  (`evolution.special-mutation-chance`, scaled by its mutability gene) to gain a brand new
+  mutation. Each one is rolled from scratch: a random benefit (+10% to +35% on a random stat) and,
+  most of the time, a random drawback on another stat, plus a generated name like *Fleet Marrow*
+  or *Bogwalker Pelt*. Twelve stats can be affected (speed, vision, lifespan, upkeep, thirst, food
+  energy, grief, ram rest, cold, desert thirst, slow ground, birth cost). Each parent passes a
+  special mutation on with `evolution.special-mutation-inheritance`; a sheep carries at most three.
 - **Mating cooldown:** after mating every sheep rests and looks for no mate until it ends. A ram's
   rest is `breeding.male-rest-seconds` scaled by his rest-time gene; ewes rest
   `breeding.female-rest-seconds`. Mating in a row no longer causes depression, it just waits.
+
+## Rare food
+
+About 4% of food spawns are **golden apples** (`food.rare-chance`, at most `food.rare-max` at once). They glow
+gold, are worth `food.rare-energy-multiplier` times a berry, and also refill some water and lift mood.
+They ignore the biome food rules, so they are relatively commoner in deserts and tundra. Sheep see them
+as about twice as close as they are, so they will take a longer walk for one.
+
+## Adaptation
+
+Sheep slowly get better at surviving what has been killing them. Recent deaths are tallied by cause
+and biome, and fade with a half-life (`adaptation.half-life-seconds`). The bigger the share of recent
+deaths a cause has, the more newborns get a small nudge towards the genes that help against it:
+
+| Recent deaths | Newborns get better at |
+| --- | --- |
+| Starvation | efficiency (lower upkeep), digestion, vision |
+| Dehydration | thirst resistance, vision |
+| Starving in the tundra | cold resistance, efficiency |
+| Dying of thirst in the desert | heat tolerance, thirst resistance |
+| Starving in forest or swamp | sure-footedness, speed |
+
+Old age is no pressure. Natural selection still runs on top, and when a cause stops killing sheep the
+pressure fades. See what the population is adapting to with `/evo stats` and `/evo deaths`. Tune or
+disable it in the `adaptation:` section of `config.yml`.
+
+## Field Guide
+
+`/evo book`, then right-click a sheep. Page 1 is a contents page; click an entry to jump to it.
+**Hover over any label, value or bar** to get a text box that explains it: what a gene does,
+what its range is, which mutation it earned, what a special mutation changes and how a biome
+treats this particular sheep. Pages: overview, body genes, survival genes, special mutations,
+gene marks and needs. Every page has a `<< Contents` link back to page 1.
 
 ## Needs, mood and orientation
 
@@ -68,7 +110,6 @@ population adapt.
 - **Orientation:** some sheep pair with their own sex. They have rainbow wool, pair up and
   show hearts like any pair, but no child is born. Rate: `orientation.same-sex-chance`.
 - **Stat bars:** a floating bar over each sheep (`animation.stat-bars`).
-- **Field Guide:** `/evo book`, then right-click a sheep for its full stats.
 
 ## Tilted mating pose
 

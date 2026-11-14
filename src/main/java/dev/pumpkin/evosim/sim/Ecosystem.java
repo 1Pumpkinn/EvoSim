@@ -46,6 +46,10 @@ public final class Ecosystem {
     private static final double MATING_MOOD = 15;
     private static final double EATING_MOOD = 4;
     private static final int FOOD_PLACEMENT_TRIES = 8;
+    /** Rare food looks this many times closer than it is when a creature picks what to walk to. */
+    private static final double RARE_FOOD_PULL = 2.0;
+    /** Extra mood from a rare meal, as a multiple of a normal one. */
+    private static final double RARE_MOOD_FACTOR = 4.0;
 
     /** Fastest a creature can swing its heading, in radians per second. */
     private static final double TURN_RATE = 5.0;
@@ -87,6 +91,8 @@ public final class Ecosystem {
     private long nextCreatureId = 1;
     private long nextFoodId = 1;
     private double foodAccumulator;
+    private int rareFoods;
+    private final Adaptation adaptation;
     private long births;
     private long deaths;
     private double elapsed;
@@ -98,6 +104,7 @@ public final class Ecosystem {
         this.rng = rng;
         this.size = config.arena().size();
         this.ponds = Pond.layout(config);
+        this.adaptation = new Adaptation(config.adaptation());
     }
 
     public List<Creature> creatures() { return Collections.unmodifiableList(creatures); }
@@ -105,6 +112,9 @@ public final class Ecosystem {
     public List<Food> foods() { return Collections.unmodifiableList(foods); }
 
     public BiomeMap biomes() { return biomes; }
+
+    /** What recent deaths are pushing the population to adapt to. */
+    public Adaptation adaptation() { return adaptation; }
 
     public List<Pond> ponds() { return Collections.unmodifiableList(ponds); }
 
@@ -139,6 +149,8 @@ public final class Ecosystem {
         nextCreatureId = 1;
         nextFoodId = 1;
         foodAccumulator = 0;
+        rareFoods = 0;
+        adaptation.clear();
         births = 0;
         deaths = 0;
         elapsed = 0;
@@ -146,6 +158,7 @@ public final class Ecosystem {
 
     /** Advances the world by {@code h} simulated seconds (keep h small, e.g. 0.1). */
     public void step(double h) {
+        adaptation.decay(h);
         spawnFood(h);
         steerAndMove(h);
         pairUp();
@@ -167,17 +180,25 @@ public final class Ecosystem {
                 foodAccumulator = 0;
                 break;
             }
-            // Food grows in proportion to each biome's food factor (rejection sampling).
+            // Rare food can appear anywhere, so it is relatively commoner in the sparse biomes.
+            boolean rare = rareFoods < cfg.rareMax() && rng.nextDouble() < cfg.rareChance();
+            // Normal food grows in proportion to each biome's food factor (rejection sampling).
             double fx = 0;
             double fz = 0;
             boolean placed = false;
+            if (rare) {
+                fx = 0.5 + rng.nextDouble() * (size - 1.0);
+                fz = 0.5 + rng.nextDouble() * (size - 1.0);
+                placed = true;
+            }
             for (int tries = 0; tries < FOOD_PLACEMENT_TRIES && !placed; tries++) {
                 fx = 0.5 + rng.nextDouble() * (size - 1.0);
                 fz = 0.5 + rng.nextDouble() * (size - 1.0);
                 placed = rng.nextDouble() * biomes.maxFoodFactor() <= biomes.at(fx, fz).foodFactor();
             }
             if (!placed) continue;
-            Food f = new Food(nextFoodId++, fx, fz, cfg.energy());
+            Food f = new Food(nextFoodId++, fx, fz, rare ? cfg.energy() * cfg.rareEnergyMultiplier() : cfg.energy(), rare);
+            if (rare) rareFoods++;
             foods.add(f);
             listener.foodSpawned(f);
         }
@@ -414,7 +435,7 @@ public final class Ecosystem {
 
             double step = c.genome().speed() * h
                     * (isDepressed(c) ? needs.depressedSpeedFactor() : 1.0)
-                    * biomes.at(c.x(), c.z()).speedFactor();
+                    * c.genome().terrainSpeed(biomes.at(c.x(), c.z()).speedFactor());
             if (hasTarget) {
                 step = Math.min(step, Math.max(0, dist - stopShort)); // never overshoot the target
             }
@@ -455,6 +476,7 @@ public final class Ecosystem {
             double d2 = dx * dx + dz * dz;
             if (d2 > v2) continue;
             double cost = Math.sqrt(d2) / biomes.at(f.x(), f.z()).speedFactor();
+            if (f.rare()) cost /= RARE_FOOD_PULL; // worth a longer walk
             if (cost < bestCost) {
                 bestCost = cost;
                 best = f;
@@ -526,8 +548,8 @@ public final class Ecosystem {
         }
         // Make sure the child can be afforded, so the test always plays through.
         double share = config.population().reproductionCost() / 2.0;
-        a.addEnergy(Math.max(0, share - a.energy()));
-        b.addEnergy(Math.max(0, share - b.energy()));
+        a.addEnergy(Math.max(0, share * a.genome().birthCostMultiplier() - a.energy()));
+        b.addEnergy(Math.max(0, share * b.genome().birthCostMultiplier() - b.energy()));
 
         double seconds = config.population().matingSeconds();
         a.beginMating(b, seconds);
@@ -574,14 +596,17 @@ public final class Ecosystem {
         SimConfig.Population pop = config.population();
         SimConfig.Evolution evo = config.evolution();
         double share = pop.reproductionCost() / 2.0;
-        if (creatures.size() >= pop.max() || a.energy() < share || b.energy() < share) {
+        double shareA = share * a.genome().birthCostMultiplier();
+        double shareB = share * b.genome().birthCostMultiplier();
+        if (creatures.size() >= pop.max() || a.energy() < shareA || b.energy() < shareB) {
             return; // no room or a parent ran low on energy while paired
         }
 
-        a.addEnergy(-share);
-        b.addEnergy(-share);
-        Genome genome = Genome.crossover(a.genome(), b.genome(), rng)
-                .mutate(rng, evo.mutationRate(), evo.mutationStrength());
+        a.addEnergy(-shareA);
+        b.addEnergy(-shareB);
+        Genome genome = Genome.crossover(a.genome(), b.genome(), rng, evo.specialInheritance())
+                .mutate(rng, evo.mutationRate(), evo.mutationStrength(), evo.specialMutationChance());
+        genome = adaptation.adapt(genome, rng);
         Creature child = new Creature(nextCreatureId++, genome,
                 Math.max(a.generation(), b.generation()) + 1,
                 clamp((a.x() + b.x()) / 2.0, 0.5, size - 0.5),
@@ -613,8 +638,9 @@ public final class Ecosystem {
                 double dx = f.x() - c.x();
                 double dz = f.z() - c.z();
                 if (dx * dx + dz * dz <= reach2) {
-                    c.addEnergy(f.energy());
-                    c.addMood(EATING_MOOD);
+                    c.addEnergy(f.energy() * c.genome().foodMultiplier());
+                    c.addMood(f.rare() ? EATING_MOOD * RARE_MOOD_FACTOR : EATING_MOOD);
+                    if (f.rare()) c.addHydration(config.food().rareHydration());
                     eaten.add(f);
                     break;
                 }
@@ -622,6 +648,9 @@ public final class Ecosystem {
         }
 
         if (!eaten.isEmpty()) {
+            for (Food f : eaten) {
+                if (f.rare()) rareFoods--;
+            }
             foods.removeIf(eaten::contains);
             eaten.forEach(listener::foodEaten);
         }
@@ -640,8 +669,8 @@ public final class Ecosystem {
         SimConfig.Needs needs = config.needs();
         for (Creature c : creatures) {
             Biome biome = biomes.at(c.x(), c.z());
-            c.addEnergy(-c.costPerSecond(config.energy()) * biome.upkeepFactor() * h);
-            c.addHydration(-needs.thirstDrain() * c.genome().thirstRate() * biome.thirstFactor() * h);
+            c.addEnergy(-c.costPerSecond(config.energy()) * c.genome().coldUpkeep(biome.upkeepFactor()) * h);
+            c.addHydration(-needs.thirstDrain() * c.genome().thirstRate() * c.genome().desertThirst(biome.thirstFactor()) * h);
             c.tickRest(h);
             if (c.hydration() <= 0) {
                 c.addEnergy(-needs.dehydrationDamage() * h); // dehydration
@@ -705,6 +734,7 @@ public final class Ecosystem {
             forcedPairs.remove(c);
             c.endMating();
             DeathCause cause = causeOfDeath(c, maxAge);
+            adaptation.recordDeath(cause, biomes.at(c.x(), c.z()));
             deathCounts.merge(cause, 1, Integer::sum);
             deathAgeSums.merge(cause, c.age(), Double::sum);
             deaths++;

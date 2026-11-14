@@ -8,6 +8,7 @@ import dev.pumpkin.evosim.inspect.DeathStatsDialog;
 import dev.pumpkin.evosim.inspect.FieldGuide;
 import dev.pumpkin.evosim.inspect.SheepTracker;
 import dev.pumpkin.evosim.render.ColorMode;
+import dev.pumpkin.evosim.sim.Adaptation;
 import dev.pumpkin.evosim.sim.Simulation;
 import dev.pumpkin.evosim.sim.Stats;
 import net.kyori.adventure.text.Component;
@@ -153,6 +154,18 @@ public final class EvoCommand implements CommandExecutor, TabCompleter {
         line(sender, String.format(Locale.ROOT, "Diversity %.2f, births %d, deaths %d", s.diversity(), s.births(), s.deaths()));
         line(sender, String.format(Locale.ROOT, "Mean water %.0f, mood %.0f, depressed %d, same-sex pairing %d",
                 s.meanHydration(), s.meanMood(), s.depressed(), s.sameSex()));
+        Adaptation adaptation = sim.adaptation();
+        if (adaptation.enabled()) {
+            StringBuilder adapting = new StringBuilder();
+            for (Adaptation.Pressure p : Adaptation.Pressure.values()) {
+                double level = adaptation.level(p);
+                if (level < 0.05) continue;
+                if (adapting.length() > 0) adapting.append(", ");
+                adapting.append(String.format(Locale.ROOT, "%s %.0f%%", p.label(), level * 100));
+            }
+            line(sender, "Adapting to: " + (adapting.length() == 0 ? "nothing in particular" : adapting)
+                    + String.format(Locale.ROOT, " (%d gene boosts given)", adaptation.applied()));
+        }
     }
 
     private void teleport(CommandSender sender) {

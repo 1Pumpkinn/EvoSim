@@ -13,6 +13,7 @@ public record SimConfig(
         Food food,
         Energy energy,
         Evolution evolution,
+        Adaptation adaptation,
         Needs needs,
         Animation animation,
         Biomes biomes,
@@ -30,11 +31,16 @@ public record SimConfig(
                              double reproductionThreshold, double reproductionCost,
                              double maxAgeSeconds, double maturitySeconds, double matingSeconds) {}
 
-    public record Food(double spawnPerSecond, int max, double energy) {}
+    public record Food(double spawnPerSecond, int max, double energy,
+                       double rareChance, int rareMax, double rareEnergyMultiplier, double rareHydration) {}
 
     public record Energy(double baseCost, double speedCost, double sizeCost, double visionCost) {}
 
-    public record Evolution(double mutationRate, double mutationStrength, double initialSpread) {}
+    public record Evolution(double mutationRate, double mutationStrength, double initialSpread,
+                            double specialMutationChance, double specialInheritance) {}
+
+    public record Adaptation(boolean enabled, double chance, double strength,
+                             double halfLifeSeconds, double deathsForFull) {}
 
     /**
      * Thirst, wellbeing and orientation. Hydration and mood run 0..100.
@@ -102,7 +108,11 @@ public record SimConfig(
         Food food = new Food(
                 clamp(cfg.getDouble("food.spawn-per-second", 140.0), 0, 1000),
                 clamp(cfg.getInt("food.max", 1600), 1, 5000),
-                clamp(cfg.getDouble("food.energy", 30), 1, 100_000));
+                clamp(cfg.getDouble("food.energy", 30), 1, 100_000),
+                clamp(cfg.getDouble("food.rare-chance", 0.04), 0, 1),
+                clamp(cfg.getInt("food.rare-max", 100), 0, 5000),
+                clamp(cfg.getDouble("food.rare-energy-multiplier", 4.0), 1, 1000),
+                clamp(cfg.getDouble("food.rare-hydration", 30), 0, 100));
 
         Energy energy = new Energy(
                 clamp(cfg.getDouble("energy.base-cost", 0.6), 0, 1000),
@@ -113,7 +123,16 @@ public record SimConfig(
         Evolution evolution = new Evolution(
                 clamp(cfg.getDouble("evolution.mutation-rate", 0.25), 0, 1),
                 clamp(cfg.getDouble("evolution.mutation-strength", 0.08), 0, 1),
-                clamp(cfg.getDouble("evolution.initial-spread", 0.3), 0, 1));
+                clamp(cfg.getDouble("evolution.initial-spread", 0.3), 0, 1),
+                clamp(cfg.getDouble("evolution.special-mutation-chance", 0.06), 0, 1),
+                clamp(cfg.getDouble("evolution.special-mutation-inheritance", 0.5), 0, 1));
+
+        Adaptation adaptation = new Adaptation(
+                cfg.getBoolean("adaptation.enabled", true),
+                clamp(cfg.getDouble("adaptation.chance", 0.4), 0, 1),
+                clamp(cfg.getDouble("adaptation.strength", 0.06), 0, 1),
+                clamp(cfg.getDouble("adaptation.half-life-seconds", 120), 1, 100_000),
+                clamp(cfg.getDouble("adaptation.deaths-for-full-pressure", 30), 1, 100_000));
 
         Needs needs = new Needs(
                 clamp(cfg.getInt("water.ponds", 14), 0, 32),
@@ -147,7 +166,7 @@ public record SimConfig(
                 cfg.getString("dimension.name", "evosim"),
                 clamp(cfg.getInt("dimension.origin-y", 64), -32, 200));
 
-        return new SimConfig(simulation, arena, population, food, energy, evolution, needs, animation, biomes,
+        return new SimConfig(simulation, arena, population, food, energy, evolution, adaptation, needs, animation, biomes,
                 dimension);
     }
 

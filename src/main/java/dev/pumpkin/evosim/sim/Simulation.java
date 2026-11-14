@@ -76,6 +76,9 @@ public final class Simulation implements Ecosystem.Listener {
     /** Deaths so far by cause, most common first. */
     public List<DeathTally> deathTallies() { return ecosystem.deathTallies(); }
 
+    /** What recent deaths are pushing the population to adapt to. */
+    public Adaptation adaptation() { return ecosystem.adaptation(); }
+
     /** Every living creature. */
     public List<Creature> creatures() { return ecosystem.creatures(); }
 
