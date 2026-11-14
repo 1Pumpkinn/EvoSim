@@ -6,6 +6,7 @@ import dev.pumpkin.evosim.config.SimConfig;
 import dev.pumpkin.evosim.hud.Hud;
 import dev.pumpkin.evosim.inspect.BreedingStick;
 import dev.pumpkin.evosim.inspect.FieldGuide;
+import dev.pumpkin.evosim.sim.BiomeMap;
 import dev.pumpkin.evosim.sim.Pond;
 import dev.pumpkin.evosim.sim.Simulation;
 import net.kyori.adventure.text.Component;
@@ -84,9 +85,10 @@ public final class EvoSimPlugin extends JavaPlugin {
             simulation.shutdown();
         }
         arena.purgeEntities();
-        arena.build(Pond.layout(simConfig));
+        BiomeMap biomes = BiomeMap.generate(simConfig, new java.util.SplittableRandom());
+        arena.build(Pond.layout(simConfig), biomes);
         arena.keepLoaded(this);
-        simulation = new Simulation(this, simConfig, arena);
+        simulation = new Simulation(this, simConfig, arena, biomes);
         simulation.onExtinction(() -> getServer().broadcast(
                 Component.text("[EvoSim] The population went extinct. Use /evo reset to try again.",
                         NamedTextColor.RED)));

@@ -14,7 +14,8 @@ public record SimConfig(
         Energy energy,
         Evolution evolution,
         Needs needs,
-        Animation animation
+        Animation animation,
+        Biomes biomes
 ) {
 
     public record Simulation(int tickInterval, double timeScale) {}
@@ -54,6 +55,9 @@ public record SimConfig(
      * tiltedMount: tilted model for the mounting mate (needs the resource pack); statBars: floating
      * stat bars; corpseSeconds: how long a dead sheep lies on its side before it disappears.
      */
+    /** enabled: split the arena into biomes; regions: how many patches of biome to scatter. */
+    public record Biomes(boolean enabled, int regions) {}
+
     public record Animation(boolean tiltedMount, boolean statBars, double corpseSeconds) {}
 
     public static SimConfig load(FileConfiguration cfg, Logger log) {
@@ -62,7 +66,7 @@ public record SimConfig(
                 clamp(cfg.getDouble("simulation.time-scale", 1.0), 0.1, 20.0));
 
         Arena arena = new Arena(
-                clamp(cfg.getInt("arena.size", 64), 16, 256),
+                clamp(cfg.getInt("arena.size", 128), 16, 256),
                 clamp(cfg.getInt("arena.wall-height", 3), 1, 16),
                 block(cfg, "arena.floor-block", Material.GRASS_BLOCK, log),
                 block(cfg, "arena.wall-block", Material.DEEPSLATE_BRICKS, log));
@@ -74,8 +78,8 @@ public record SimConfig(
             cost = threshold;
         }
         Population population = new Population(
-                clamp(cfg.getInt("population.initial", 30), 1, 1000),
-                clamp(cfg.getInt("population.max", 150), 1, 2000),
+                clamp(cfg.getInt("population.initial", 60), 1, 1000),
+                clamp(cfg.getInt("population.max", 200), 1, 2000),
                 clamp(cfg.getDouble("population.start-energy", 60), 1, 100_000),
                 threshold,
                 cost,
@@ -84,8 +88,8 @@ public record SimConfig(
                 clamp(cfg.getDouble("population.mating-seconds", 2.5), 0.5, 60));
 
         Food food = new Food(
-                clamp(cfg.getDouble("food.spawn-per-second", 12.0), 0, 1000),
-                clamp(cfg.getInt("food.max", 150), 1, 5000),
+                clamp(cfg.getDouble("food.spawn-per-second", 36.0), 0, 1000),
+                clamp(cfg.getInt("food.max", 300), 1, 5000),
                 clamp(cfg.getDouble("food.energy", 30), 1, 100_000));
 
         Energy energy = new Energy(
@@ -100,8 +104,8 @@ public record SimConfig(
                 clamp(cfg.getDouble("evolution.initial-spread", 0.3), 0, 1));
 
         Needs needs = new Needs(
-                clamp(cfg.getInt("water.ponds", 3), 0, 12),
-                clamp(cfg.getDouble("water.pond-radius", 3.5), 1, 20),
+                clamp(cfg.getInt("water.ponds", 6), 0, 12),
+                clamp(cfg.getDouble("water.pond-radius", 4.0), 1, 20),
                 clamp(cfg.getDouble("water.thirst-per-second", 1.2), 0, 100),
                 clamp(cfg.getDouble("water.drink-per-second", 25), 0.1, 1000),
                 clamp(cfg.getDouble("water.seek-below", 50), 1, 100),
@@ -121,7 +125,11 @@ public record SimConfig(
                 cfg.getBoolean("animation.stat-bars", true),
                 clamp(cfg.getDouble("animation.corpse-seconds", 4.0), 0, 60));
 
-        return new SimConfig(simulation, arena, population, food, energy, evolution, needs, animation);
+        Biomes biomes = new Biomes(
+                cfg.getBoolean("biomes.enabled", true),
+                clamp(cfg.getInt("biomes.regions", 8), 1, 64));
+
+        return new SimConfig(simulation, arena, population, food, energy, evolution, needs, animation, biomes);
     }
 
     private static Material block(FileConfiguration cfg, String path, Material fallback, Logger log) {

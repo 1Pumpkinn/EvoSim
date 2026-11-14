@@ -47,6 +47,18 @@ public final class Ecosystem {
     /** Mood gained when a pair finishes mating, when eating, and for each parent at a birth. */
     private static final double MATING_MOOD = 15;
     private static final double EATING_MOOD = 4;
+    private static final int FOOD_PLACEMENT_TRIES = 8;
+
+    /** Fastest a creature can swing its heading, in radians per second. */
+    private static final double TURN_RATE = 5.0;
+    /** Within this distance of its target a creature heads straight for it. */
+    private static final double CLOSE_RANGE = 2.0;
+    /** Walls start pushing creatures away from this far out, and how hard. */
+    private static final double WALL_MARGIN = 3.0;
+    private static final double WALL_PUSH = 1.5;
+    /** Creatures nudge apart when closer than their radii plus this gap, and how hard. */
+    private static final double PERSONAL_GAP = 0.4;
+    private static final double SEPARATION_PUSH = 0.9;
     /** Creatures within this many blocks of a death grieve. */
     private static final double GRIEF_RADIUS = 8;
 
@@ -58,6 +70,7 @@ public final class Ecosystem {
     private final List<Creature> creatures = new ArrayList<>();
     private final List<Food> foods = new ArrayList<>();
     private final List<Pond> ponds;
+    private final BiomeMap biomes;
     /** Lower-id partner of every pair made by {@link #forceMate}: these always have a child. */
     private final Set<Creature> forcedPairs = new HashSet<>();
 
@@ -68,8 +81,9 @@ public final class Ecosystem {
     private long deaths;
     private double elapsed;
 
-    public Ecosystem(SimConfig config, Listener listener, RandomGenerator rng) {
+    public Ecosystem(SimConfig config, Listener listener, RandomGenerator rng, BiomeMap biomes) {
         this.config = config;
+        this.biomes = biomes;
         this.listener = listener;
         this.rng = rng;
         this.size = config.arena().size();
@@ -79,6 +93,8 @@ public final class Ecosystem {
     public List<Creature> creatures() { return Collections.unmodifiableList(creatures); }
 
     public List<Food> foods() { return Collections.unmodifiableList(foods); }
+
+    public BiomeMap biomes() { return biomes; }
 
     public List<Pond> ponds() { return Collections.unmodifiableList(ponds); }
 
@@ -139,10 +155,17 @@ public final class Ecosystem {
                 foodAccumulator = 0;
                 break;
             }
-            Food f = new Food(nextFoodId++,
-                    0.5 + rng.nextDouble() * (size - 1.0),
-                    0.5 + rng.nextDouble() * (size - 1.0),
-                    cfg.energy());
+            // Food grows in proportion to each biome's food factor (rejection sampling).
+            double fx = 0;
+            double fz = 0;
+            boolean placed = false;
+            for (int tries = 0; tries < FOOD_PLACEMENT_TRIES && !placed; tries++) {
+                fx = 0.5 + rng.nextDouble() * (size - 1.0);
+                fz = 0.5 + rng.nextDouble() * (size - 1.0);
+                placed = rng.nextDouble() * biomes.maxFoodFactor() <= biomes.at(fx, fz).foodFactor();
+            }
+            if (!placed) continue;
+            Food f = new Food(nextFoodId++, fx, fz, cfg.energy());
             foods.add(f);
             listener.foodSpawned(f);
         }
@@ -178,9 +201,17 @@ public final class Ecosystem {
         return false;
     }
 
-    /** Standing in a pond and not full yet: stays put and drinks. */
-    private boolean isDrinking(Creature c) {
-        return c.hydration() < DRINK_UNTIL && isInPond(c);
+    /**
+     * A creature starts drinking when it stands in a pond while thirsty, and keeps drinking
+     * until it is full. One that is not thirsty just walks through (and still gets a sip).
+     */
+    private void updateDrinking(Creature c) {
+        boolean inPond = isInPond(c);
+        if (c.isDrinking()) {
+            if (!inPond || c.hydration() >= DRINK_UNTIL) c.setDrinking(false);
+        } else if (inPond && c.hydration() < config.needs().seekBelow()) {
+            c.setDrinking(true);
+        }
     }
 
     /** Nearest pond whose edge is within the creature's vision. */
@@ -199,68 +230,135 @@ public final class Ecosystem {
     }
 
     private void steerAndMove(double h) {
+        SimConfig.Needs needs = config.needs();
         for (Creature c : creatures) {
-            if (c.isMating() || isDrinking(c)) continue; // paired or drinking creatures stay put
+            if (c.isMating()) continue; // paired creatures stay put
+            updateDrinking(c);
+            if (c.isDrinking()) continue; // drinking creatures stay put
 
-            double heading = c.heading();
-            SimConfig.Needs needs = config.needs();
+            // 1. Pick a target: water if parched, else a mate, else water if thirsty, else food.
             boolean thirsty = c.hydration() < needs.seekBelow();
             boolean parched = c.hydration() < needs.seekBelow() * 0.5;
             Pond pond = thirsty ? nearestPond(c) : null;
             Creature mate = isReady(c) ? nearestMate(c) : null;
+            double tx = 0;
+            double tz = 0;
+            double stopShort = 0; // distance to keep from the target
+            boolean hasTarget = false;
             if (pond != null && (parched || mate == null)) {
-                heading = Math.atan2(pond.z() - c.z(), pond.x() - c.x());
+                tx = pond.x();
+                tz = pond.z();
+                hasTarget = true;
             } else if (mate != null) {
-                heading = Math.atan2(mate.z() - c.z(), mate.x() - c.x());
+                tx = mate.x();
+                tz = mate.z();
+                stopShort = c.radius() + mate.radius();
+                hasTarget = true;
             } else {
-                Food target = nearestFood(c);
-                if (target != null) {
-                    heading = Math.atan2(target.z() - c.z(), target.x() - c.x());
-                } else {
-                    heading += rng.nextGaussian() * WANDER_TURN * Math.sqrt(h);
+                Food food = chooseFood(c);
+                if (food != null) {
+                    tx = food.x();
+                    tz = food.z();
+                    hasTarget = true;
                 }
             }
 
-            double distance = c.genome().speed() * h * (isDepressed(c) ? needs.depressedSpeedFactor() : 1.0);
-            double nx = c.x() + Math.cos(heading) * distance;
-            double nz = c.z() + Math.sin(heading) * distance;
+            // 2. Work out the direction to go.
+            double dist = hasTarget ? Math.hypot(tx - c.x(), tz - c.z()) : 0;
+            boolean close = hasTarget && dist < CLOSE_RANGE;
+            double vx;
+            double vz;
+            if (hasTarget) {
+                vx = dist > 1e-9 ? (tx - c.x()) / dist : Math.cos(c.heading());
+                vz = dist > 1e-9 ? (tz - c.z()) / dist : Math.sin(c.heading());
+            } else {
+                double wander = c.heading() + rng.nextGaussian() * WANDER_TURN * Math.sqrt(h);
+                vx = Math.cos(wander);
+                vz = Math.sin(wander);
+            }
+            if (!close) {
+                // Steer away from walls early instead of bouncing off them...
+                double margin = WALL_MARGIN + c.radius();
+                if (c.x() < margin) vx += WALL_PUSH * (margin - c.x()) / margin;
+                else if (c.x() > size - margin) vx -= WALL_PUSH * (c.x() - (size - margin)) / margin;
+                if (c.z() < margin) vz += WALL_PUSH * (margin - c.z()) / margin;
+                else if (c.z() > size - margin) vz -= WALL_PUSH * (c.z() - (size - margin)) / margin;
+                // ...and drift apart from creatures that are in the way (not from the mate being sought).
+                for (Creature other : creatures) {
+                    if (other == c || other == mate) continue;
+                    double ox = c.x() - other.x();
+                    double oz = c.z() - other.z();
+                    double personal = c.radius() + other.radius() + PERSONAL_GAP;
+                    double d2 = ox * ox + oz * oz;
+                    if (d2 >= personal * personal || d2 < 1e-12) continue;
+                    double d = Math.sqrt(d2);
+                    double push = SEPARATION_PUSH * (personal - d) / personal;
+                    vx += ox / d * push;
+                    vz += oz / d * push;
+                }
+            }
+
+            // 3. Turn towards it at a limited rate (instantly when close), then walk.
+            double desired = Math.atan2(vz, vx);
+            double heading = c.heading();
+            if (close) {
+                heading = desired;
+            } else {
+                double delta = wrapAngle(desired - heading);
+                double maxTurn = TURN_RATE * h;
+                heading += Math.max(-maxTurn, Math.min(maxTurn, delta));
+            }
+
+            double step = c.genome().speed() * h
+                    * (isDepressed(c) ? needs.depressedSpeedFactor() : 1.0)
+                    * biomes.at(c.x(), c.z()).speedFactor();
+            if (hasTarget) {
+                step = Math.min(step, Math.max(0, dist - stopShort)); // never overshoot the target
+            }
 
             double r = c.radius();
-            double max = size - r;
-            if (nx < r) {
-                nx = r;
-                heading = Math.PI - heading;
-            } else if (nx > max) {
-                nx = max;
-                heading = Math.PI - heading;
-            }
-            if (nz < r) {
-                nz = r;
-                heading = -heading;
-            } else if (nz > max) {
-                nz = max;
-                heading = -heading;
-            }
-
+            double nx = clamp(c.x() + Math.cos(heading) * step, r, size - r);
+            double nz = clamp(c.z() + Math.sin(heading) * step, r, size - r);
             c.moveTo(nx, nz);
             c.setHeading(heading);
         }
     }
 
-    private Food nearestFood(Creature c) {
+    private static double wrapAngle(double a) {
+        return Math.atan2(Math.sin(a), Math.cos(a));
+    }
+
+    /**
+     * Keeps heading for the same food until it is eaten or out of sight (so a creature does not
+     * dither between two equally near pieces); otherwise picks the cheapest one in view, where
+     * food on slow ground (forest, swamp) counts as further away.
+     */
+    private Food chooseFood(Creature c) {
         double vision = c.genome().vision();
-        double best = vision * vision;
-        Food nearest = null;
+        Food current = c.targetFood();
+        if (current != null) {
+            double dx = current.x() - c.x();
+            double dz = current.z() - c.z();
+            if (dx * dx + dz * dz <= vision * vision * 1.44 && foods.contains(current)) {
+                return current;
+            }
+        }
+        double v2 = vision * vision;
+        double bestCost = Double.MAX_VALUE;
+        Food best = null;
         for (Food f : foods) {
             double dx = f.x() - c.x();
             double dz = f.z() - c.z();
             double d2 = dx * dx + dz * dz;
-            if (d2 <= best) {
-                best = d2;
-                nearest = f;
+            if (d2 > v2) continue;
+            double cost = Math.sqrt(d2) / biomes.at(f.x(), f.z()).speedFactor();
+            if (cost < bestCost) {
+                bestCost = cost;
+                best = f;
             }
         }
-        return nearest;
+        c.setTargetFood(best);
+        return best;
     }
 
     private Creature nearestMate(Creature c) {
@@ -450,8 +548,9 @@ public final class Ecosystem {
     private void metabolize(double h) {
         SimConfig.Needs needs = config.needs();
         for (Creature c : creatures) {
-            c.addEnergy(-c.costPerSecond(config.energy()) * h);
-            c.addHydration(-needs.thirstDrain() * c.genome().thirstRate() * h);
+            Biome biome = biomes.at(c.x(), c.z());
+            c.addEnergy(-c.costPerSecond(config.energy()) * biome.upkeepFactor() * h);
+            c.addHydration(-needs.thirstDrain() * c.genome().thirstRate() * biome.thirstFactor() * h);
             c.tickRest(h);
             if (c.hydration() <= 0) {
                 c.addEnergy(-needs.dehydrationDamage() * h); // dehydration

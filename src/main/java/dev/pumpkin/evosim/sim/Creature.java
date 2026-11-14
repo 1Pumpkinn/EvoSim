@@ -30,6 +30,8 @@ public final class Creature {
     private double matingRemaining;
     private double lastMatedAt = Double.NEGATIVE_INFINITY;
     private double restRemaining;
+    private Food targetFood;
+    private boolean drinking;
 
     public Creature(long id, Genome genome, int generation,
                     double x, double z, double heading, double energy,
@@ -133,6 +135,16 @@ public final class Creature {
     public double restRemaining() { return restRemaining; }
 
     public boolean isResting() { return restRemaining > 0; }
+
+    /** The food this creature is heading for; kept until eaten or out of sight so it does not dither. */
+    public Food targetFood() { return targetFood; }
+
+    public void setTargetFood(Food food) { this.targetFood = food; }
+
+    /** Standing in a pond and drinking until full. */
+    public boolean isDrinking() { return drinking; }
+
+    public void setDrinking(boolean drinking) { this.drinking = drinking; }
 
     public void beginRest(double seconds) { this.restRemaining = Math.max(restRemaining, seconds); }
 

@@ -27,6 +27,7 @@ public final class Simulation implements Ecosystem.Listener {
     private final Plugin plugin;
     private final SimConfig config;
     private final Arena arena;
+    private final BiomeMap biomes;
     private final Ecosystem ecosystem;
 
     private final Map<Creature, CreatureView> creatureViews = new HashMap<>();
@@ -37,15 +38,18 @@ public final class Simulation implements Ecosystem.Listener {
     private double timeScale;
     private Runnable extinctionListener;
 
-    public Simulation(Plugin plugin, SimConfig config, Arena arena) {
+    public Simulation(Plugin plugin, SimConfig config, Arena arena, BiomeMap biomes) {
         this.plugin = plugin;
         this.config = config;
         this.arena = arena;
+        this.biomes = biomes;
         this.timeScale = config.simulation().timeScale();
-        this.ecosystem = new Ecosystem(config, this, new SplittableRandom());
+        this.ecosystem = new Ecosystem(config, this, new SplittableRandom(), biomes);
     }
 
     public Arena arena() { return arena; }
+
+    public BiomeMap biomes() { return biomes; }
 
     public boolean isRunning() { return task != null; }
 

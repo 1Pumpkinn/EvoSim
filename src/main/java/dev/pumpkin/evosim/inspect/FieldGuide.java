@@ -2,6 +2,7 @@ package dev.pumpkin.evosim.inspect;
 
 import dev.pumpkin.evosim.EvoSimPlugin;
 import dev.pumpkin.evosim.config.SimConfig;
+import dev.pumpkin.evosim.sim.BiomeMap;
 import dev.pumpkin.evosim.sim.Creature;
 import dev.pumpkin.evosim.sim.Simulation;
 import net.kyori.adventure.inventory.Book;
@@ -66,10 +67,10 @@ public final class FieldGuide implements Listener {
         if (creature.isEmpty()) return;
 
         event.setCancelled(true);
-        player.openBook(book(creature.get(), sim.get().config()));
+        player.openBook(book(creature.get(), sim.get().config(), sim.get().biomes()));
     }
 
-    private static Book book(Creature c, SimConfig config) {
+    private static Book book(Creature c, SimConfig config, BiomeMap biomes) {
         SimConfig.Needs needs = config.needs();
         double energyMax = config.population().reproductionThreshold();
 
@@ -121,6 +122,7 @@ public final class FieldGuide implements Listener {
                 .append(line("Mood", fmt(c.mood(), 0) + " / 100"))
                 .appendNewline()
                 .append(line("State", state))
+                .append(line("Biome", biomes.at(c.x(), c.z()).displayName()))
                 .append(line("Depressed below", fmt(needs.depressionBelow(), 0)))
                 .build();
 

@@ -1,6 +1,8 @@
 package dev.pumpkin.evosim.arena;
 
 import dev.pumpkin.evosim.config.SimConfig;
+import dev.pumpkin.evosim.sim.Biome;
+import dev.pumpkin.evosim.sim.BiomeMap;
 import dev.pumpkin.evosim.sim.Pond;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -70,8 +72,19 @@ public final class Arena {
         return toLocation(size / 2.0, size / 2.0);
     }
 
-    /** Places floor, walls and ponds, and clears the air space above the floor. */
-    public void build(List<Pond> ponds) {
+    /** The floor block of a biome; grassland uses the configured floor block. */
+    private Material floorFor(Biome biome) {
+        return switch (biome) {
+            case GRASSLAND -> floorBlock;
+            case FOREST -> Material.PODZOL;
+            case DESERT -> Material.SAND;
+            case TUNDRA -> Material.SNOW_BLOCK;
+            case SWAMP -> Material.MUD;
+        };
+    }
+
+    /** Places floor, walls, biomes and ponds, and clears the air space above the floor. */
+    public void build(List<Pond> ponds, BiomeMap biomes) {
         int minX = originX - 1;
         int maxX = originX + size;
         int minZ = originZ - 1;
@@ -81,7 +94,8 @@ public final class Arena {
         for (int x = minX; x <= maxX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
                 boolean edge = x == minX || x == maxX || z == minZ || z == maxZ;
-                world.getBlockAt(x, floorY, z).setType(edge ? wallBlock : floorBlock, false);
+                Material floor = edge ? wallBlock : floorFor(biomes.at(x - originX + 0.5, z - originZ + 0.5));
+                world.getBlockAt(x, floorY, z).setType(floor, false);
                 for (int y = floorY + 1; y <= top; y++) {
                     Material m = edge && y <= floorY + wallHeight ? wallBlock : Material.AIR;
                     world.getBlockAt(x, y, z).setType(m, false);

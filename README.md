@@ -31,6 +31,16 @@ population adapt.
 | `/evo remove` | Remove the arena and all creatures |
 | `/evo reload` | Reload config.yml (applies to the next `/evo create`) |
 
+## Biomes and movement
+
+- **Biomes:** the arena (128 blocks wide by default) is split into patches of grassland, forest,
+  desert, tundra and swamp (`biomes.regions`, `biomes.enabled`). Forests grow more food but slow
+  walking, deserts have little food and fierce thirst, tundra burns extra energy, swamps slow
+  walking but barely cause thirst. The Field Guide shows the biome a sheep stands in.
+- **Pathfinding:** sheep stick to one piece of food until it is eaten, turn at a limited rate,
+  stop at their target instead of overshooting, steer away from walls and from each other, count
+  food on slow ground as further away, and only stop to drink when they are thirsty.
+
 ## Mutations and breeding rest
 
 - **Genes:** besides speed, size and vision, sheep carry lifespan, metabolism (upkeep), thirst

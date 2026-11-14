@@ -7,16 +7,16 @@ simulation:
   time-scale: 1.0
 
 arena:
-  # Side length in blocks (square arena).
-  size: 64
+  # Side length in blocks (square arena). Bigger arenas take a moment to build.
+  size: 128
   wall-height: 3
   floor-block: GRASS_BLOCK
   wall-block: DEEPSLATE_BRICKS
 
 population:
-  initial: 30
+  initial: 60
   # Every creature is a real mob entity, so keep this moderate.
-  max: 150
+  max: 200
   # Energy a founder creature starts with.
   start-energy: 60
   # Two adults whose energy reaches this value look for each other and mate...
@@ -31,8 +31,8 @@ population:
   mating-seconds: 2.5
 
 food:
-  spawn-per-second: 12.0
-  max: 150
+  spawn-per-second: 36.0
+  max: 300
   # Energy gained from one piece of food.
   energy: 30
 
@@ -52,10 +52,18 @@ evolution:
   # How narrow the starting gene pool is (0 = identical, 1 = full range).
   initial-spread: 0.3
 
+biomes:
+  # The arena is split into patches of grassland, forest, desert, tundra and swamp.
+  # Forests grow more food but slow walking; deserts have little food and fierce thirst;
+  # tundra burns extra energy; swamps slow walking but barely cause thirst.
+  enabled: true
+  # How many patches to scatter (each is one of the five biomes).
+  regions: 8
+
 water:
   # Ponds are placed in the arena floor. Creatures drink when they stand in one.
-  ponds: 3
-  pond-radius: 3.5
+  ponds: 6
+  pond-radius: 4.0
   # Hydration (0-100) lost per second, and gained per second while drinking.
   thirst-per-second: 1.2
   drink-per-second: 25
