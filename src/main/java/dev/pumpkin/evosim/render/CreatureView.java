@@ -228,13 +228,6 @@ public final class CreatureView {
                 8, 0.4, 0.3, 0.4, 0);
     }
 
-    /** Angry particles, played when this creature was bred again too soon. */
-    public void playOverbredEffect() {
-        if (!sheep.isValid()) return;
-        arena.world().spawnParticle(Particle.ANGRY_VILLAGER, location().add(0, sheep.getHeight() + 0.3, 0),
-                4, 0.3, 0.2, 0.3, 0);
-    }
-
     public void recolor(ColorMode mode) {
         dye = mode.dye(creature.genome());
         sheep.setColor(dye);

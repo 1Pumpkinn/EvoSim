@@ -28,7 +28,6 @@ public final class Creature {
 
     private Creature mate;
     private double matingRemaining;
-    private double lastMatedAt = Double.NEGATIVE_INFINITY;
     private double restRemaining;
     private Food targetFood;
     private boolean drinking;
@@ -126,12 +125,7 @@ public final class Creature {
 
     public void advanceMating(double seconds) { this.matingRemaining -= seconds; }
 
-    /** Simulation time of the last finished mating, or negative infinity if it never mated. */
-    public double lastMatedAt() { return lastMatedAt; }
-
-    public void markMated(double simTime) { this.lastMatedAt = simTime; }
-
-    /** Seconds left of the rest a ram takes after mating; 0 when ready again. */
+    /** Seconds left of the rest a creature takes after mating; 0 when ready again. */
     public double restRemaining() { return restRemaining; }
 
     public boolean isResting() { return restRemaining > 0; }

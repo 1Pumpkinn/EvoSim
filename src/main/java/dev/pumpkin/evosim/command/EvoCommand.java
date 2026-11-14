@@ -91,7 +91,9 @@ public final class EvoCommand implements CommandExecutor, TabCompleter {
         }
         player.teleport(sim.arena().centerLocation());
         hud.show(player);
-        ok(sender, "Arena built from your position. Use /evo start to begin.");
+        ok(sender, plugin.simConfig().dimension().enabled()
+                ? "Arena built in its own dimension. Use /evo start to begin."
+                : "Arena built from your position. Use /evo start to begin.");
     }
 
     private void spawn(CommandSender sender, String[] args) {

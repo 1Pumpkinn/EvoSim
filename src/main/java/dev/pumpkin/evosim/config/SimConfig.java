@@ -15,7 +15,8 @@ public record SimConfig(
         Evolution evolution,
         Needs needs,
         Animation animation,
-        Biomes biomes
+        Biomes biomes,
+        Dimension dimension
 ) {
 
     public record Simulation(int tickInterval, double timeScale) {}
@@ -40,23 +41,31 @@ public record SimConfig(
      * depressionBelow: mood under which a creature is depressed (slower, no mating);
      * moodDrain/moodRecovery: mood change per second; griefMoodLoss: mood lost by every creature
      * near a death (double for a widowed partner); sameSexChance: share of creatures that
-     * pair with their own sex; overbreedingWindow: a creature that mates again within this many
-     * seconds of its last mating is overbred; overbreedingMoodLoss: mood it loses each time;
-     * maleRestSeconds: how long a ram rests after mating before it looks for a mate again.
+     * pair with their own sex; maleRestSeconds: how long a ram rests after mating before it looks
+     * for a mate again (scaled by his rest-time gene); femaleRestSeconds: the same cooldown for ewes.
      */
     public record Needs(int pondCount, double pondRadius, double thirstDrain, double drinkRate,
                         double seekBelow, double dehydrationDamage, double depressionBelow,
                         double depressedSpeedFactor, double moodDrain, double moodRecovery,
                         double griefMoodLoss, double sameSexChance,
-                        double overbreedingWindow, double overbreedingMoodLoss,
-                        double maleRestSeconds) {}
+                        double maleRestSeconds, double femaleRestSeconds) {}
 
     /**
      * tiltedMount: tilted model for the mounting mate (needs the resource pack); statBars: floating
      * stat bars; corpseSeconds: how long a dead sheep lies on its side before it disappears.
      */
-    /** enabled: split the arena into biomes; regions: how many patches of biome to scatter. */
-    public record Biomes(boolean enabled, int regions) {}
+    /**
+     * enabled: split the arena into biomes; regions: average number of patches to scatter;
+     * regionVariance: how far the count may drift from that average each generation (0..1);
+     * sizeVariance: how unequal the patches are in size (0 = even, 1 = huge and tiny mixed).
+     */
+    public record Biomes(boolean enabled, int regions, double regionVariance, double sizeVariance) {}
+
+    /**
+     * enabled: build the arena in its own void world instead of at the player's position;
+     * name: that world's name; originY: the height creatures stand at inside it.
+     */
+    public record Dimension(boolean enabled, String name, int originY) {}
 
     public record Animation(boolean tiltedMount, boolean statBars, double corpseSeconds) {}
 
@@ -66,7 +75,7 @@ public record SimConfig(
                 clamp(cfg.getDouble("simulation.time-scale", 1.0), 0.1, 20.0));
 
         Arena arena = new Arena(
-                clamp(cfg.getInt("arena.size", 128), 16, 256),
+                clamp(cfg.getInt("arena.size", 384), 16, 512),
                 clamp(cfg.getInt("arena.wall-height", 3), 1, 16),
                 block(cfg, "arena.floor-block", Material.GRASS_BLOCK, log),
                 block(cfg, "arena.wall-block", Material.DEEPSLATE_BRICKS, log));
@@ -78,8 +87,8 @@ public record SimConfig(
             cost = threshold;
         }
         Population population = new Population(
-                clamp(cfg.getInt("population.initial", 60), 1, 1000),
-                clamp(cfg.getInt("population.max", 200), 1, 2000),
+                clamp(cfg.getInt("population.initial", 150), 1, 2000),
+                clamp(cfg.getInt("population.max", 1000), 1, 5000),
                 clamp(cfg.getDouble("population.start-energy", 60), 1, 100_000),
                 threshold,
                 cost,
@@ -88,8 +97,8 @@ public record SimConfig(
                 clamp(cfg.getDouble("population.mating-seconds", 2.5), 0.5, 60));
 
         Food food = new Food(
-                clamp(cfg.getDouble("food.spawn-per-second", 36.0), 0, 1000),
-                clamp(cfg.getInt("food.max", 300), 1, 5000),
+                clamp(cfg.getDouble("food.spawn-per-second", 140.0), 0, 1000),
+                clamp(cfg.getInt("food.max", 1600), 1, 5000),
                 clamp(cfg.getDouble("food.energy", 30), 1, 100_000));
 
         Energy energy = new Energy(
@@ -104,8 +113,8 @@ public record SimConfig(
                 clamp(cfg.getDouble("evolution.initial-spread", 0.3), 0, 1));
 
         Needs needs = new Needs(
-                clamp(cfg.getInt("water.ponds", 6), 0, 12),
-                clamp(cfg.getDouble("water.pond-radius", 4.0), 1, 20),
+                clamp(cfg.getInt("water.ponds", 14), 0, 32),
+                clamp(cfg.getDouble("water.pond-radius", 6.0), 1, 20),
                 clamp(cfg.getDouble("water.thirst-per-second", 1.2), 0, 100),
                 clamp(cfg.getDouble("water.drink-per-second", 25), 0.1, 1000),
                 clamp(cfg.getDouble("water.seek-below", 50), 1, 100),
@@ -116,9 +125,8 @@ public record SimConfig(
                 clamp(cfg.getDouble("wellbeing.mood-recovery-per-second", 0.6), 0, 100),
                 clamp(cfg.getDouble("wellbeing.grief-mood-loss", 18), 0, 100),
                 clamp(cfg.getDouble("orientation.same-sex-chance", 0.1), 0, 1),
-                clamp(cfg.getDouble("wellbeing.overbreeding-window-seconds", 30), 0, 10_000),
-                clamp(cfg.getDouble("wellbeing.overbreeding-mood-loss", 35), 0, 100),
-                clamp(cfg.getDouble("breeding.male-rest-seconds", 25), 0, 10_000));
+                clamp(cfg.getDouble("breeding.male-rest-seconds", 25), 0, 10_000),
+                clamp(cfg.getDouble("breeding.female-rest-seconds", 30), 0, 10_000));
 
         Animation animation = new Animation(
                 cfg.getBoolean("animation.tilted-mount", true),
@@ -127,9 +135,17 @@ public record SimConfig(
 
         Biomes biomes = new Biomes(
                 cfg.getBoolean("biomes.enabled", true),
-                clamp(cfg.getInt("biomes.regions", 8), 1, 64));
+                clamp(cfg.getInt("biomes.regions", 14), 1, 64),
+                clamp(cfg.getDouble("biomes.region-variance", 0.5), 0, 0.9),
+                clamp(cfg.getDouble("biomes.size-variance", 0.8), 0, 1));
 
-        return new SimConfig(simulation, arena, population, food, energy, evolution, needs, animation, biomes);
+        Dimension dimension = new Dimension(
+                cfg.getBoolean("dimension.enabled", true),
+                cfg.getString("dimension.name", "evosim"),
+                clamp(cfg.getInt("dimension.origin-y", 64), -32, 200));
+
+        return new SimConfig(simulation, arena, population, food, energy, evolution, needs, animation, biomes,
+                dimension);
     }
 
     private static Material block(FileConfiguration cfg, String path, Material fallback, Logger log) {

@@ -31,9 +31,6 @@ public final class Ecosystem {
 
         /** Fired right after {@link #creatureBorn} for a child of two parents. */
         default void offspringBorn(Creature child, Creature parentA, Creature parentB) {}
-
-        /** Fired when a creature mated again too soon after its last mating and was pushed toward depression. */
-        default void overbred(Creature creature) {}
     }
 
     /** Heading change per sqrt(second) while wandering without a target. */
@@ -449,12 +446,10 @@ public final class Ecosystem {
             Creature b = a.mate();
             a.endMating();
             b.endMating();
-            applyMatingMood(a);
-            applyMatingMood(b);
-            a.markMated(elapsed);
-            b.markMated(elapsed);
-            restRam(a);
-            restRam(b);
+            a.addMood(MATING_MOOD);
+            b.addMood(MATING_MOOD);
+            restAfterMating(a);
+            restAfterMating(b);
             boolean forced = forcedPairs.remove(a);
             if (forced || !a.isSameSex()) { // same-sex pairs bond but have no child
                 giveBirth(a, b);
@@ -462,21 +457,11 @@ public final class Ecosystem {
         }
     }
 
-    /** A ram rests after mating, for a time set by his rest-time gene; ewes have no such rest. */
-    private void restRam(Creature c) {
-        if (c.isFemale()) return;
-        c.beginRest(config.needs().maleRestSeconds() * c.genome().restTime());
-    }
-
-    /** A normal mating lifts mood; mating again too soon after the last one is unwanted and drains it instead. */
-    private void applyMatingMood(Creature c) {
+    /** Everyone rests after mating and looks for no mate until it ends; a ram's rest follows his rest-time gene. */
+    private void restAfterMating(Creature c) {
         SimConfig.Needs needs = config.needs();
-        if (elapsed - c.lastMatedAt() < needs.overbreedingWindow()) {
-            c.addMood(-needs.overbreedingMoodLoss());
-            listener.overbred(c);
-        } else {
-            c.addMood(MATING_MOOD);
-        }
+        double seconds = c.isFemale() ? needs.femaleRestSeconds() : needs.maleRestSeconds() * c.genome().restTime();
+        c.beginRest(seconds);
     }
 
     private void giveBirth(Creature a, Creature b) {

@@ -1,6 +1,7 @@
 package dev.pumpkin.evosim;
 
 import dev.pumpkin.evosim.arena.Arena;
+import dev.pumpkin.evosim.arena.SimWorld;
 import dev.pumpkin.evosim.command.EvoCommand;
 import dev.pumpkin.evosim.config.SimConfig;
 import dev.pumpkin.evosim.hud.Hud;
@@ -12,6 +13,7 @@ import dev.pumpkin.evosim.sim.Simulation;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -23,6 +25,7 @@ public final class EvoSimPlugin extends JavaPlugin {
     private SimConfig simConfig;
     private Simulation simulation;
     private Hud hud;
+    private SimWorld simWorld;
 
     @Override
     public void onEnable() {
@@ -56,6 +59,9 @@ public final class EvoSimPlugin extends JavaPlugin {
             simulation.shutdown();
             simulation = null;
         }
+        if (simWorld != null) {
+            simWorld.stop();
+        }
     }
 
     /** Re-reads config.yml and rebuilds the validated {@link SimConfig}. */
@@ -74,12 +80,24 @@ public final class EvoSimPlugin extends JavaPlugin {
     }
 
     /**
-     * Builds a fresh arena at {@code origin} (its minimum corner; the floor is
-     * the block below) and creates a paused simulation in it. Any previous
-     * simulation is shut down first. Throws IllegalArgumentException if the
+     * Builds a fresh arena and creates a paused simulation in it. With the dimension
+     * enabled the arena goes in the dedicated simulation world; otherwise it is built at
+     * {@code fallbackOrigin} (its minimum corner; the floor is the block below). Any
+     * previous simulation is shut down first. Throws IllegalArgumentException if the
      * arena does not fit the world's height limits.
      */
-    public Simulation createSimulation(Location origin) {
+    public Simulation createSimulation(Location fallbackOrigin) {
+        boolean dedicated = simConfig.dimension().enabled();
+        Location origin = fallbackOrigin;
+        if (dedicated) {
+            if (simWorld == null || !simWorld.matches(simConfig.dimension())) {
+                if (simWorld != null) simWorld.stop();
+                simWorld = new SimWorld(this, simConfig.dimension());
+                getServer().getPluginManager().registerEvents(simWorld, this);
+            }
+            World world = simWorld.getOrCreate();
+            origin = new Location(world, 0, simConfig.dimension().originY(), 0);
+        }
         Arena arena = new Arena(origin, simConfig.arena());
         if (simulation != null) {
             simulation.shutdown();
@@ -88,6 +106,9 @@ public final class EvoSimPlugin extends JavaPlugin {
         BiomeMap biomes = BiomeMap.generate(simConfig, new java.util.SplittableRandom());
         arena.build(Pond.layout(simConfig), biomes);
         arena.keepLoaded(this);
+        if (dedicated) {
+            simWorld.fence(arena.world(), arena.centerLocation(), arena.size());
+        }
         simulation = new Simulation(this, simConfig, arena, biomes);
         simulation.onExtinction(() -> getServer().broadcast(
                 Component.text("[EvoSim] The population went extinct. Use /evo reset to try again.",
@@ -100,6 +121,7 @@ public final class EvoSimPlugin extends JavaPlugin {
         if (simulation == null) return;
         Simulation old = simulation;
         simulation = null;
+        if (simWorld != null) simWorld.evacuate();
         old.stop();
         old.arena().demolish();
         old.shutdown();

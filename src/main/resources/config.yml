@@ -6,17 +6,28 @@ simulation:
   # Simulation speed multiplier. 2.0 = twice as fast as real time.
   time-scale: 1.0
 
+dimension:
+  # Build the arena in its own void world instead of at your position. The world is created
+  # the first time you run /evo create, is never saved, stays at daytime with clear weather,
+  # and only EvoSim can spawn mobs in it. /evo remove sends everyone back to the main world.
+  # Set to false to build the arena wherever you stand, like before.
+  enabled: true
+  name: evosim
+  # Height creatures stand at (the floor is the block below).
+  origin-y: 64
+
 arena:
-  # Side length in blocks (square arena). Bigger arenas take a moment to build.
-  size: 128
+  # Side length in blocks (square arena, 16-512). In the dimension it is built from 0, 0. Bigger arenas take a while to build:
+  # 384 is about nine times the area of the old 128 default.
+  size: 384
   wall-height: 3
   floor-block: GRASS_BLOCK
   wall-block: DEEPSLATE_BRICKS
 
 population:
-  initial: 60
-  # Every creature is a real mob entity, so keep this moderate.
-  max: 200
+  initial: 150
+  # Every creature is a real mob entity, so a high cap costs server performance.
+  max: 1000
   # Energy a founder creature starts with.
   start-energy: 60
   # Two adults whose energy reaches this value look for each other and mate...
@@ -31,8 +42,8 @@ population:
   mating-seconds: 2.5
 
 food:
-  spawn-per-second: 36.0
-  max: 300
+  spawn-per-second: 140.0
+  max: 1600
   # Energy gained from one piece of food.
   energy: 30
 
@@ -57,13 +68,19 @@ biomes:
   # Forests grow more food but slow walking; deserts have little food and fierce thirst;
   # tundra burns extra energy; swamps slow walking but barely cause thirst.
   enabled: true
-  # How many patches to scatter (each is one of the five biomes).
-  regions: 8
+  # Average number of patches to scatter (each is one of the five biomes).
+  regions: 14
+  # Every /evo create picks its own patch count within regions +/- this share (0-0.9).
+  region-variance: 0.5
+  # How uneven the patches are (0-1). At 0 they are all about the same size; higher values
+  # give maps where one biome sprawls across a huge area while another is a small pocket.
+  size-variance: 0.8
 
 water:
   # Ponds are placed in the arena floor. Creatures drink when they stand in one.
-  ponds: 6
-  pond-radius: 4.0
+  # Up to 8 ponds form one ring; more than that gets an outer and an inner ring.
+  ponds: 14
+  pond-radius: 6.0
   # Hydration (0-100) lost per second, and gained per second while drinking.
   thirst-per-second: 1.2
   drink-per-second: 25
@@ -73,9 +90,11 @@ water:
   dehydration-damage: 2.0
 
 breeding:
-  # After mating, a ram rests this many seconds before he looks for a mate again.
+  # After mating, every sheep rests before it looks for a mate again. A ram rests this many seconds.
   # Each ram's rest-time gene scales it (x0.5 to x1.5).
   male-rest-seconds: 25
+  # Ewes have the same kind of cooldown after mating (no gene scales it).
+  female-rest-seconds: 30
 
 wellbeing:
   # Mood runs 0-100. Under this value a creature is depressed: slower, and it will not mate.
@@ -87,11 +106,6 @@ wellbeing:
   mood-recovery-per-second: 0.6
   # Mood lost by every creature within a few blocks of a death (double for a widowed partner).
   grief-mood-loss: 18
-  # Mating again within this many seconds of the last mating counts as unwanted breeding.
-  # There is no cooldown: it still happens, but the overbred sheep loses this much mood
-  # instead of gaining some, so repeated overbreeding leads to depression.
-  overbreeding-window-seconds: 30
-  overbreeding-mood-loss: 35
 
 orientation:
   # Share of creatures that pair with their own sex. They pair up and show hearts like

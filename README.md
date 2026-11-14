@@ -10,14 +10,14 @@ population adapt.
 ## Quick start
 
 1. `gradle runServer`, join, and `/op` yourself.
-2. Stand where you want one corner of the arena and run `/evo create`.
+2. Run `/evo create`. The arena is built in its own void world (`dimension.*` in config.yml) and you are teleported into it. With `dimension.enabled: false` it is built from where you stand instead.
 3. `/evo start`, then watch the boss bar. Try `/evo speed 5` and `/evo color speed`.
 
 ## Commands (permission `evosim.admin`, default op)
 
 | Command | What it does |
 | --- | --- |
-| `/evo create` | Build an arena from your position and teleport you into it |
+| `/evo create` | Build the arena (in the simulation dimension) and teleport you into it |
 | `/evo start` / `stop` | Run or pause the simulation |
 | `/evo reset` | Wipe the ecosystem and respawn fresh founders |
 | `/evo spawn [n]` | Add n founder creatures (default 10) |
@@ -28,13 +28,13 @@ population adapt.
 | `/evo hud` | Toggle the stats boss bar |
 | `/evo book` | Give yourself the Field Guide (right-click a sheep to read its stats) |
 | `/evo stick` | Give yourself the Breeding Stick (testing: right-click two sheep and they breed, whatever their sex or preference) |
-| `/evo remove` | Remove the arena and all creatures |
+| `/evo remove` | Remove the arena and all creatures, and send players back to the main world |
 | `/evo reload` | Reload config.yml (applies to the next `/evo create`) |
 
 ## Biomes and movement
 
-- **Biomes:** the arena (128 blocks wide by default) is split into patches of grassland, forest,
-  desert, tundra and swamp (`biomes.regions`, `biomes.enabled`). Forests grow more food but slow
+- **Biomes:** the arena (384 blocks wide by default) is split into patches of grassland, forest,
+  desert, tundra and swamp (`biomes.regions`, `biomes.enabled`). Every `/evo create` rolls a new map: the patch count, patch sizes and biome mix all vary (`biomes.region-variance`, `biomes.size-variance`), so one biome may sprawl while another is tiny. Forests grow more food but slow
   walking, deserts have little food and fierce thirst, tundra burns extra energy, swamps slow
   walking but barely cause thirst. The Field Guide shows the biome a sheep stands in.
 - **Pathfinding:** sheep stick to one piece of food until it is eaten, turn at a limited rate,
@@ -48,8 +48,9 @@ population adapt.
 - **Mutations:** a gene in the outer quarter of its range is shown as a mutation (Swift, Giant,
   Long-lived, Efficient, Camel-like, Stoic, Quick recovery and their opposites) on the stat bar
   and in the Field Guide's Mutations page.
-- **Ram rest:** after mating a ram rests (`breeding.male-rest-seconds`, scaled by his rest-time
-  gene) and looks for no mate until it ends. Ewes have no such rest.
+- **Mating cooldown:** after mating every sheep rests and looks for no mate until it ends. A ram's
+  rest is `breeding.male-rest-seconds` scaled by his rest-time gene; ewes rest
+  `breeding.female-rest-seconds`. Mating in a row no longer causes depression, it just waits.
 
 ## Needs, mood and orientation
 
@@ -57,9 +58,6 @@ population adapt.
   sheep look for a pond and stand in it to drink. At zero they lose energy.
 - **Depression:** mood falls while hungry, thirsty, alone or when others die nearby, and recovers otherwise.
   Depressed sheep are slower and will not mate. Eating and mating lift mood.
-- **Overbreeding:** mating again soon after the last mating (`wellbeing.overbreeding-window-seconds`)
-  drains mood instead of lifting it, and the sheep shows angry particles. There is no cooldown;
-  repeated overbreeding leads to depression.
 - **Orientation:** some sheep pair with their own sex. They have rainbow wool, pair up and
   show hearts like any pair, but no child is born. Rate: `orientation.same-sex-chance`.
 - **Stat bars:** a floating bar over each sheep (`animation.stat-bars`).

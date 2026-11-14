@@ -168,12 +168,6 @@ public final class Simulation implements Ecosystem.Listener {
     }
 
     @Override
-    public void overbred(Creature creature) {
-        CreatureView view = creatureViews.get(creature);
-        if (view != null) view.playOverbredEffect();
-    }
-
-    @Override
     public void creatureDied(Creature creature) {
         CreatureView view = creatureViews.remove(creature);
         if (view == null) return;

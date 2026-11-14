@@ -19,7 +19,10 @@ public record Pond(double x, double z, double radius) {
         return Math.hypot(px - x, pz - z) - radius;
     }
 
-    /** The fixed pond layout for an arena: one in the middle, or a ring around it. */
+    /**
+     * The fixed pond layout for an arena: one in the middle, a single ring around it, or for
+     * larger counts an outer and an inner ring so water stays within reach on a big arena.
+     */
     public static List<Pond> layout(SimConfig config) {
         int count = config.needs().pondCount();
         double size = config.arena().size();
@@ -29,12 +32,23 @@ public record Pond(double x, double z, double radius) {
             ponds.add(new Pond(size / 2.0, size / 2.0, radius));
             return ponds;
         }
-        double ring = size * 0.3;
+        if (count <= 8) {
+            addRing(ponds, count, size * 0.3, Math.PI / 4.0, size, radius);
+            return ponds;
+        }
+        int outer = (int) Math.ceil(count * 0.65);
+        int inner = count - outer;
+        addRing(ponds, outer, size * 0.38, Math.PI / 4.0, size, radius);
+        addRing(ponds, inner, size * 0.16, Math.PI / 4.0 + Math.PI / Math.max(1, inner), size, radius);
+        return ponds;
+    }
+
+    private static void addRing(List<Pond> ponds, int count, double ring, double offset,
+                                double size, double radius) {
         for (int i = 0; i < count; i++) {
-            double angle = 2.0 * Math.PI * i / count + Math.PI / 4.0;
+            double angle = 2.0 * Math.PI * i / count + offset;
             ponds.add(new Pond(size / 2.0 + ring * Math.cos(angle),
                     size / 2.0 + ring * Math.sin(angle), radius));
         }
-        return ponds;
     }
 }
