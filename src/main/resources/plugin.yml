@@ -1,0 +1,5 @@
+name: EvoSim
+version: '${version}'
+main: dev.pumpkin.evosim.EvoSimPlugin
+api-version: '26.2'
+description: Real-time evolution simulation with natural selection.

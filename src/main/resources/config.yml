@@ -1,0 +1,48 @@
+# EvoSim configuration. Restart (or /evo reload once commands exist) to apply.
+
+simulation:
+  # Run the simulation every N server ticks (2 = 10 updates/sec).
+  tick-interval: 2
+  # Simulation speed multiplier. 2.0 = twice as fast as real time.
+  time-scale: 1.0
+
+arena:
+  # Side length in blocks (square arena).
+  size: 64
+  wall-height: 3
+  floor-block: GRASS_BLOCK
+  wall-block: DEEPSLATE_BRICKS
+
+population:
+  initial: 30
+  max: 300
+  # Energy a founder creature starts with.
+  start-energy: 60
+  # A creature reproduces once its energy reaches this value...
+  reproduction-threshold: 120
+  # ...and gives this much energy to its child.
+  reproduction-cost: 50
+  # Creatures die of old age after this many simulated seconds.
+  max-age-seconds: 300
+
+food:
+  spawn-per-second: 4.0
+  max: 150
+  # Energy gained from one piece of food.
+  energy: 30
+
+# Energy drained per simulated second:
+#   base + speed-cost * speed^2 + size-cost * size^3 + vision-cost * vision
+energy:
+  base-cost: 0.6
+  speed-cost: 0.05
+  size-cost: 0.8
+  vision-cost: 0.04
+
+evolution:
+  # Chance that each trait mutates when a child is born.
+  mutation-rate: 0.25
+  # Mutation size as a fraction of the trait's full range (std. deviation).
+  mutation-strength: 0.08
+  # How narrow the starting gene pool is (0 = identical, 1 = full range).
+  initial-spread: 0.3
