@@ -153,6 +153,7 @@ public final class Ecosystem {
         return !c.isMating()
                 && c.isAdult(config.population().maturitySeconds())
                 && c.energy() >= config.population().reproductionThreshold()
+                && !c.isResting()
                 && !isDepressed(c);
     }
 
@@ -354,11 +355,19 @@ public final class Ecosystem {
             applyMatingMood(b);
             a.markMated(elapsed);
             b.markMated(elapsed);
+            restRam(a);
+            restRam(b);
             boolean forced = forcedPairs.remove(a);
             if (forced || !a.isSameSex()) { // same-sex pairs bond but have no child
                 giveBirth(a, b);
             }
         }
+    }
+
+    /** A ram rests after mating, for a time set by his rest-time gene; ewes have no such rest. */
+    private void restRam(Creature c) {
+        if (c.isFemale()) return;
+        c.beginRest(config.needs().maleRestSeconds() * c.genome().restTime());
     }
 
     /** A normal mating lifts mood; mating again too soon after the last one is unwanted and drains it instead. */
@@ -442,7 +451,8 @@ public final class Ecosystem {
         SimConfig.Needs needs = config.needs();
         for (Creature c : creatures) {
             c.addEnergy(-c.costPerSecond(config.energy()) * h);
-            c.addHydration(-needs.thirstDrain() * h);
+            c.addHydration(-needs.thirstDrain() * c.genome().thirstRate() * h);
+            c.tickRest(h);
             if (c.hydration() <= 0) {
                 c.addEnergy(-needs.dehydrationDamage() * h); // dehydration
             }
@@ -493,13 +503,13 @@ public final class Ecosystem {
                 double dx = other.x() - c.x();
                 double dz = other.z() - c.z();
                 if (dx * dx + dz * dz <= GRIEF_RADIUS * GRIEF_RADIUS) {
-                    other.addMood(-grief);
+                    other.addMood(-grief * other.genome().griefSensitivity());
                 }
             }
             Creature partner = c.mate();
             if (partner != null && partner.mate() == c) {
                 partner.endMating(); // widowed mid-mating
-                partner.addMood(-grief);
+                partner.addMood(-grief * partner.genome().griefSensitivity());
                 forcedPairs.remove(partner);
             }
             forcedPairs.remove(c);

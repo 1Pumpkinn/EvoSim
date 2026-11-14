@@ -29,6 +29,7 @@ public final class Creature {
     private Creature mate;
     private double matingRemaining;
     private double lastMatedAt = Double.NEGATIVE_INFINITY;
+    private double restRemaining;
 
     public Creature(long id, Genome genome, int generation,
                     double x, double z, double heading, double energy,
@@ -128,22 +129,31 @@ public final class Creature {
 
     public void markMated(double simTime) { this.lastMatedAt = simTime; }
 
+    /** Seconds left of the rest a ram takes after mating; 0 when ready again. */
+    public double restRemaining() { return restRemaining; }
+
+    public boolean isResting() { return restRemaining > 0; }
+
+    public void beginRest(double seconds) { this.restRemaining = Math.max(restRemaining, seconds); }
+
+    public void tickRest(double seconds) { this.restRemaining = Math.max(0, restRemaining - seconds); }
+
     public void endMating() {
         this.mate = null;
         this.matingRemaining = 0;
     }
 
     public boolean isDead(double maxAgeSeconds) {
-        return energy <= 0 || age >= maxAgeSeconds;
+        return energy <= 0 || age >= maxAgeSeconds * genome.longevity();
     }
 
     /** Energy drained per simulated second, from the trait cost model. */
     public double costPerSecond(SimConfig.Energy cost) {
         double speed = genome.speed();
         double size = genome.size();
-        return cost.baseCost()
+        return (cost.baseCost()
                 + cost.speedCost() * speed * speed
                 + cost.sizeCost() * size * size * size
-                + cost.visionCost() * genome.vision();
+                + cost.visionCost() * genome.vision()) * genome.metabolism();
     }
 }

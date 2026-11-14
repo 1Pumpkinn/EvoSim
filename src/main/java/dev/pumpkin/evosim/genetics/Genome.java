@@ -11,25 +11,45 @@ public final class Genome {
 
     public enum Trait {
         /** Movement speed in blocks per second. */
-        SPEED(1.0, 6.0, false, 1.0),
+        SPEED(1.0, 6.0, false, 1.0, "Sluggish", "Swift"),
         /** Body scale; 1.0 is one block wide. */
-        SIZE(0.3, 1.5, false, 1.0),
+        SIZE(0.3, 1.5, false, 1.0, "Tiny", "Giant"),
         /** Radius in blocks within which food and rivals are noticed. */
-        VISION(3.0, 20.0, false, 1.0),
+        VISION(3.0, 20.0, false, 1.0, "Short-sighted", "Eagle-eyed"),
+        /** Lifespan multiplier. */
+        LONGEVITY(0.6, 1.4, false, 1.0, "Short-lived", "Long-lived"),
+        /** Energy upkeep multiplier; low is efficient. */
+        METABOLISM(0.7, 1.3, false, 1.0, "Efficient", "Gluttonous"),
+        /** Thirst multiplier: how fast hydration drains; low is hardy. */
+        THIRST_RATE(0.6, 1.4, false, 1.0, "Camel-like", "Parched"),
+        /** Multiplier on the mood lost when others die nearby; low is stoic. */
+        GRIEF_SENSITIVITY(0.5, 1.5, false, 1.0, "Stoic", "Sensitive"),
+        /** Multiplier on a ram's rest period after mating; low recovers fast. */
+        REST_TIME(0.5, 1.5, false, 1.0, "Quick recovery", "Slow recovery"),
         /** Neutral colour marker that makes lineages visible. Wraps around. */
-        HUE(0.0, 1.0, true, 0.3);
+        HUE(0.0, 1.0, true, 0.3, null, null);
 
         private final double min;
         private final double max;
         private final boolean wraps;
         private final double mutationScale;
+        private final String lowLabel;
+        private final String highLabel;
 
-        Trait(double min, double max, boolean wraps, double mutationScale) {
+        Trait(double min, double max, boolean wraps, double mutationScale, String lowLabel, String highLabel) {
             this.min = min;
             this.max = max;
             this.wraps = wraps;
             this.mutationScale = mutationScale;
+            this.lowLabel = lowLabel;
+            this.highLabel = highLabel;
         }
+
+        /** Name shown when this trait sits near the bottom of its range; null if it has none. */
+        public String lowLabel() { return lowLabel; }
+
+        /** Name shown when this trait sits near the top of its range; null if it has none. */
+        public String highLabel() { return highLabel; }
 
         public double min() { return min; }
 
@@ -127,6 +147,31 @@ public final class Genome {
     public double vision() { return get(Trait.VISION); }
 
     public double hue() { return get(Trait.HUE); }
+
+    public double longevity() { return get(Trait.LONGEVITY); }
+
+    public double metabolism() { return get(Trait.METABOLISM); }
+
+    public double thirstRate() { return get(Trait.THIRST_RATE); }
+
+    public double griefSensitivity() { return get(Trait.GRIEF_SENSITIVITY); }
+
+    public double restTime() { return get(Trait.REST_TIME); }
+
+    /** A trait counts as a mutation once it sits in the outer quarter of its range. */
+    private static final double MUTATION_EDGE = 0.25;
+
+    /** Names of the traits that sit near an extreme of their range, e.g. "Swift", "Stoic". */
+    public java.util.List<String> mutations() {
+        java.util.List<String> labels = new java.util.ArrayList<>();
+        for (Trait t : TRAITS) {
+            if (t.lowLabel() == null) continue;
+            double n = t.normalize(get(t));
+            if (n <= MUTATION_EDGE) labels.add(t.lowLabel());
+            else if (n >= 1.0 - MUTATION_EDGE) labels.add(t.highLabel());
+        }
+        return labels;
+    }
 
     /**
      * Normalised distance (0..1) between two genomes over the functional

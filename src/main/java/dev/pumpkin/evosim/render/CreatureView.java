@@ -499,6 +499,9 @@ public final class CreatureView {
         if (creature.isMating()) {
             status = "Mating";
             statusColor = NamedTextColor.LIGHT_PURPLE;
+        } else if (creature.isResting()) {
+            status = "Resting " + (int) Math.ceil(creature.restRemaining()) + "s";
+            statusColor = NamedTextColor.BLUE;
         } else if (creature.mood() < needs.depressionBelow()) {
             status = "Depressed";
             statusColor = NamedTextColor.RED;
@@ -516,7 +519,7 @@ public final class CreatureView {
         TextColor moodColor = mood >= 60 ? NamedTextColor.GREEN
                 : mood >= needs.depressionBelow() ? NamedTextColor.YELLOW : NamedTextColor.RED;
 
-        Component text = Component.text()
+        var text = Component.text()
                 .append(Component.text(creature.isFemale() ? "Ewe" : "Ram", NamedTextColor.WHITE))
                 .append(Component.text(" | Gen " + creature.generation(), NamedTextColor.GRAY))
                 .appendNewline()
@@ -526,9 +529,13 @@ public final class CreatureView {
                 .appendNewline()
                 .append(bar("Mood", mood / 100.0, moodColor))
                 .appendNewline()
-                .append(Component.text(status, statusColor))
-                .build();
-        statBar.text(text);
+                .append(Component.text(status, statusColor));
+        java.util.List<String> mutations = creature.genome().mutations();
+        if (!mutations.isEmpty()) {
+            String shown = String.join(", ", mutations.subList(0, Math.min(3, mutations.size())));
+            text.appendNewline().append(Component.text(shown, NamedTextColor.LIGHT_PURPLE));
+        }
+        statBar.text(text.build());
     }
 
     private static Component bar(String label, double ratio, TextColor color) {

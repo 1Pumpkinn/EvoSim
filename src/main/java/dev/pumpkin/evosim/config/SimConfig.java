@@ -40,13 +40,15 @@ public record SimConfig(
      * moodDrain/moodRecovery: mood change per second; griefMoodLoss: mood lost by every creature
      * near a death (double for a widowed partner); sameSexChance: share of creatures that
      * pair with their own sex; overbreedingWindow: a creature that mates again within this many
-     * seconds of its last mating is overbred; overbreedingMoodLoss: mood it loses each time.
+     * seconds of its last mating is overbred; overbreedingMoodLoss: mood it loses each time;
+     * maleRestSeconds: how long a ram rests after mating before it looks for a mate again.
      */
     public record Needs(int pondCount, double pondRadius, double thirstDrain, double drinkRate,
                         double seekBelow, double dehydrationDamage, double depressionBelow,
                         double depressedSpeedFactor, double moodDrain, double moodRecovery,
                         double griefMoodLoss, double sameSexChance,
-                        double overbreedingWindow, double overbreedingMoodLoss) {}
+                        double overbreedingWindow, double overbreedingMoodLoss,
+                        double maleRestSeconds) {}
 
     /**
      * tiltedMount: tilted model for the mounting mate (needs the resource pack); statBars: floating
@@ -111,7 +113,8 @@ public record SimConfig(
                 clamp(cfg.getDouble("wellbeing.grief-mood-loss", 18), 0, 100),
                 clamp(cfg.getDouble("orientation.same-sex-chance", 0.1), 0, 1),
                 clamp(cfg.getDouble("wellbeing.overbreeding-window-seconds", 30), 0, 10_000),
-                clamp(cfg.getDouble("wellbeing.overbreeding-mood-loss", 35), 0, 100));
+                clamp(cfg.getDouble("wellbeing.overbreeding-mood-loss", 35), 0, 100),
+                clamp(cfg.getDouble("breeding.male-rest-seconds", 25), 0, 10_000));
 
         Animation animation = new Animation(
                 cfg.getBoolean("animation.tilted-mount", true),

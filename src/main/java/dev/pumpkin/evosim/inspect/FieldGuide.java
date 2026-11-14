@@ -95,7 +95,22 @@ public final class FieldGuide implements Listener {
                 .append(line("Upkeep", fmt(c.costPerSecond(config.energy()), 2) + " energy/s"))
                 .build();
 
-        String state = c.mood() < needs.depressionBelow() ? "Depressed"
+        List<String> mutations = c.genome().mutations();
+        Component mutationPage = Component.text()
+                .append(Component.text("Mutations", NamedTextColor.DARK_BLUE, TextDecoration.BOLD))
+                .appendNewline().appendNewline()
+                .append(line("Lifespan", "x" + fmt(c.genome().longevity(), 2)))
+                .append(line("Metabolism", "x" + fmt(c.genome().metabolism(), 2)))
+                .append(line("Thirst rate", "x" + fmt(c.genome().thirstRate(), 2)))
+                .append(line("Grief", "x" + fmt(c.genome().griefSensitivity(), 2)))
+                .append(line("Ram rest", "x" + fmt(c.genome().restTime(), 2)))
+                .appendNewline()
+                .append(line("Marked as", mutations.isEmpty() ? "none" : String.join(", ", mutations)))
+                .build();
+
+        String state = c.isMating() ? "Mating"
+                : c.isResting() ? "Resting (" + fmt(c.restRemaining(), 0) + " s)"
+                : c.mood() < needs.depressionBelow() ? "Depressed"
                 : c.hydration() < 25 ? "Thirsty"
                 : c.energy() < energyMax * 0.35 ? "Hungry" : "Fine";
         Component wellbeing = Component.text()
@@ -110,7 +125,7 @@ public final class FieldGuide implements Listener {
                 .build();
 
         return Book.book(Component.text("Sheep #" + c.id()), Component.text("EvoSim"),
-                List.of(identity, traits, wellbeing));
+                List.of(identity, traits, mutationPage, wellbeing));
     }
 
     private static Component line(String label, String value) {

@@ -64,6 +64,11 @@ water:
   # Energy lost per second while hydration is 0.
   dehydration-damage: 2.0
 
+breeding:
+  # After mating, a ram rests this many seconds before he looks for a mate again.
+  # Each ram's rest-time gene scales it (x0.5 to x1.5).
+  male-rest-seconds: 25
+
 wellbeing:
   # Mood runs 0-100. Under this value a creature is depressed: slower, and it will not mate.
   depression-below: 25

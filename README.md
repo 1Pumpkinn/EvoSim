@@ -31,6 +31,16 @@ population adapt.
 | `/evo remove` | Remove the arena and all creatures |
 | `/evo reload` | Reload config.yml (applies to the next `/evo create`) |
 
+## Mutations and breeding rest
+
+- **Genes:** besides speed, size and vision, sheep carry lifespan, metabolism (upkeep), thirst
+  rate, grief sensitivity and ram rest time. They cross over and mutate like the others.
+- **Mutations:** a gene in the outer quarter of its range is shown as a mutation (Swift, Giant,
+  Long-lived, Efficient, Camel-like, Stoic, Quick recovery and their opposites) on the stat bar
+  and in the Field Guide's Mutations page.
+- **Ram rest:** after mating a ram rests (`breeding.male-rest-seconds`, scaled by his rest-time
+  gene) and looks for no mate until it ends. Ewes have no such rest.
+
 ## Needs, mood and orientation
 
 - **Thirst:** ponds are built into the arena floor. Hydration drains over time; thirsty
