@@ -27,6 +27,7 @@ population adapt.
 | `/evo tp` | Teleport to the arena centre |
 | `/evo hud` | Toggle the stats boss bar |
 | `/evo book` | Give yourself the Field Guide (right-click a sheep to read its stats) |
+| `/evo stick` | Give yourself the Breeding Stick (testing: right-click two sheep and they breed, whatever their sex or preference) |
 | `/evo remove` | Remove the arena and all creatures |
 | `/evo reload` | Reload config.yml (applies to the next `/evo create`) |
 

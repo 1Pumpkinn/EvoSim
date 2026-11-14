@@ -112,6 +112,11 @@ public final class Simulation implements Ecosystem.Listener {
         return ecosystem.spawnFounders(count);
     }
 
+    /** Testing aid: pairs two creatures right away, whatever their sex or preference. */
+    public boolean forceBreed(Creature a, Creature b) {
+        return ecosystem.forceMate(a, b);
+    }
+
     /** Stops, removes every entity and releases the arena's chunks. Blocks stay. */
     public void shutdown() {
         stop();

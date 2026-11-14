@@ -94,12 +94,15 @@ public final class CreatureView {
     private static final double STICK_BELLY_HEIGHT = 0.55;
     private static final double STICK_BACK = 0.35;
 
-    /** Ewe mark: a hollow oval-ish diamond ring on the behind. Size, distance behind the centre and height, per unit of scale. */
+    /**
+     * Ewe mark: a hollow oval-ish diamond ring on the behind. Size, distance behind the centre and height, per unit of scale.
+     * The back distance sits clear of the wool (which ends about 0.61 behind the centre) so the ring stays visible while walking.
+     */
     private static final double EWE_MARK_WIDTH = 0.36;
     private static final double EWE_MARK_HEIGHT = 0.5;
     private static final double EWE_MARK_DEPTH = 0.1;
     private static final double EWE_RING_THICKNESS = 0.07;
-    private static final double EWE_MARK_BACK = 0.66;
+    private static final double EWE_MARK_BACK = 0.8;
     private static final double EWE_MARK_RISE = 0.9;
 
     /** Rams carry a wooden stick, ewes a magenta mark. */

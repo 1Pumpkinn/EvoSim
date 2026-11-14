@@ -58,6 +58,8 @@ public final class Ecosystem {
     private final List<Creature> creatures = new ArrayList<>();
     private final List<Food> foods = new ArrayList<>();
     private final List<Pond> ponds;
+    /** Lower-id partner of every pair made by {@link #forceMate}: these always have a child. */
+    private final Set<Creature> forcedPairs = new HashSet<>();
 
     private long nextCreatureId = 1;
     private long nextFoodId = 1;
@@ -105,6 +107,7 @@ public final class Ecosystem {
     public void clear() {
         creatures.clear();
         foods.clear();
+        forcedPairs.clear();
         nextCreatureId = 1;
         nextFoodId = 1;
         foodAccumulator = 0;
@@ -297,6 +300,42 @@ public final class Ecosystem {
         }
     }
 
+    /**
+     * Testing aid: pairs two creatures right now, whatever their sex, pairing preference,
+     * age, energy or kinship. The second one is moved up to the first, and the pair ends
+     * with a child like any other. Returns false if either is missing or already paired.
+     */
+    public boolean forceMate(Creature a, Creature b) {
+        if (a == b || a.isMating() || b.isMating()
+                || !creatures.contains(a) || !creatures.contains(b)) {
+            return false;
+        }
+        double reach = a.radius() + b.radius() + MATE_MARGIN;
+        double dx = b.x() - a.x();
+        double dz = b.z() - a.z();
+        double dist = Math.hypot(dx, dz);
+        if (dist > reach) {
+            double ux = dist > 1e-6 ? dx / dist : 1.0;
+            double uz = dist > 1e-6 ? dz / dist : 0.0;
+            b.moveTo(clamp(a.x() + ux * reach, b.radius(), size - b.radius()),
+                    clamp(a.z() + uz * reach, b.radius(), size - b.radius()));
+            dx = b.x() - a.x();
+            dz = b.z() - a.z();
+        }
+        // Make sure the child can be afforded, so the test always plays through.
+        double share = config.population().reproductionCost() / 2.0;
+        a.addEnergy(Math.max(0, share - a.energy()));
+        b.addEnergy(Math.max(0, share - b.energy()));
+
+        double seconds = config.population().matingSeconds();
+        a.beginMating(b, seconds);
+        b.beginMating(a, seconds);
+        a.setHeading(Math.atan2(dz, dx));
+        b.setHeading(Math.atan2(-dz, -dx));
+        forcedPairs.add(a.id() < b.id() ? a : b);
+        return true;
+    }
+
     private void progressMating(double h) {
         List<Creature> finished = new ArrayList<>();
         for (Creature c : creatures) {
@@ -315,7 +354,8 @@ public final class Ecosystem {
             applyMatingMood(b);
             a.markMated(elapsed);
             b.markMated(elapsed);
-            if (!a.isSameSex()) { // same-sex pairs bond but have no child
+            boolean forced = forcedPairs.remove(a);
+            if (forced || !a.isSameSex()) { // same-sex pairs bond but have no child
                 giveBirth(a, b);
             }
         }
@@ -460,7 +500,9 @@ public final class Ecosystem {
             if (partner != null && partner.mate() == c) {
                 partner.endMating(); // widowed mid-mating
                 partner.addMood(-grief);
+                forcedPairs.remove(partner);
             }
+            forcedPairs.remove(c);
             c.endMating();
             deaths++;
             listener.creatureDied(c);

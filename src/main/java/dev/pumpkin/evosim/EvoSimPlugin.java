@@ -4,6 +4,7 @@ import dev.pumpkin.evosim.arena.Arena;
 import dev.pumpkin.evosim.command.EvoCommand;
 import dev.pumpkin.evosim.config.SimConfig;
 import dev.pumpkin.evosim.hud.Hud;
+import dev.pumpkin.evosim.inspect.BreedingStick;
 import dev.pumpkin.evosim.inspect.FieldGuide;
 import dev.pumpkin.evosim.sim.Pond;
 import dev.pumpkin.evosim.sim.Simulation;
@@ -34,8 +35,11 @@ public final class EvoSimPlugin extends JavaPlugin {
         FieldGuide fieldGuide = new FieldGuide(this);
         getServer().getPluginManager().registerEvents(fieldGuide, this);
 
+        BreedingStick breedingStick = new BreedingStick(this);
+        getServer().getPluginManager().registerEvents(breedingStick, this);
+
         PluginCommand command = Objects.requireNonNull(getCommand("evo"), "evo command missing from plugin.yml");
-        EvoCommand executor = new EvoCommand(this, hud, fieldGuide);
+        EvoCommand executor = new EvoCommand(this, hud, fieldGuide, breedingStick);
         command.setExecutor(executor);
         command.setTabCompleter(executor);
 

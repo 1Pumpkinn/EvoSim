@@ -2,6 +2,7 @@ package dev.pumpkin.evosim.command;
 
 import dev.pumpkin.evosim.EvoSimPlugin;
 import dev.pumpkin.evosim.hud.Hud;
+import dev.pumpkin.evosim.inspect.BreedingStick;
 import dev.pumpkin.evosim.inspect.FieldGuide;
 import dev.pumpkin.evosim.render.ColorMode;
 import dev.pumpkin.evosim.sim.Simulation;
@@ -24,16 +25,18 @@ public final class EvoCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
             "create", "start", "stop", "reset", "spawn", "speed",
-            "color", "stats", "tp", "remove", "hud", "book", "reload");
+            "color", "stats", "tp", "remove", "hud", "book", "stick", "reload");
 
     private final EvoSimPlugin plugin;
     private final Hud hud;
     private final FieldGuide fieldGuide;
+    private final BreedingStick breedingStick;
 
-    public EvoCommand(EvoSimPlugin plugin, Hud hud, FieldGuide fieldGuide) {
+    public EvoCommand(EvoSimPlugin plugin, Hud hud, FieldGuide fieldGuide, BreedingStick breedingStick) {
         this.plugin = plugin;
         this.hud = hud;
         this.fieldGuide = fieldGuide;
+        this.breedingStick = breedingStick;
     }
 
     @Override
@@ -64,6 +67,7 @@ public final class EvoCommand implements CommandExecutor, TabCompleter {
             case "remove" -> remove(sender);
             case "hud" -> toggleHud(sender);
             case "book" -> giveBook(sender);
+            case "stick" -> giveStick(sender);
             case "reload" -> {
                 plugin.reloadSimConfig();
                 ok(sender, "Config reloaded. It applies the next time you run /evo create.");
@@ -164,6 +168,15 @@ public final class EvoCommand implements CommandExecutor, TabCompleter {
         }
         player.getInventory().addItem(fieldGuide.createItem());
         ok(sender, "Right-click a sheep with the Field Guide to read its stats.");
+    }
+
+    private void giveStick(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            error(sender, "Only players can hold a breeding stick.");
+            return;
+        }
+        player.getInventory().addItem(breedingStick.createItem());
+        ok(sender, "Right-click two sheep with the Breeding Stick to make them breed.");
     }
 
     private void toggleHud(CommandSender sender) {
