@@ -9,12 +9,15 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.Color;
 import org.bukkit.DyeColor;
+import org.bukkit.EntityEffect;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemDisplay;
@@ -27,6 +30,7 @@ import org.bukkit.util.Transformation;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -41,6 +45,12 @@ import java.util.List;
  * {@code evosim:mounting_sheep} model is drawn in its place, tilted nose-up.
  */
 public final class CreatureView {
+
+    /**
+     * Ticks a mob takes to glide to a teleported position on the client. Displays that follow a
+     * sheep use the same glide, otherwise they run ahead of it and end up inside its body.
+     */
+    private static final int MOB_GLIDE_TICKS = 3;
 
     /** Newborns start at this fraction of their adult size. */
     private static final double BABY_SCALE = 0.4;
@@ -72,6 +82,30 @@ public final class CreatureView {
     /** Model pixels from the ground to the hip pivot of the pack model (see resourcepack/). */
     private static final double MODEL_HIP_HEIGHT = 13.0 / 16.0;
 
+    /** White particles shown around a mating pair. */
+    private static final Particle.DustOptions WHITE_DUST = new Particle.DustOptions(Color.WHITE, 1.2f);
+
+    /** Ram stick: size per unit of the sheep's scale. It hangs under the belly; longer while mounting. */
+    private static final double STICK_LENGTH = 0.9;
+    private static final double STICK_MOUNT_LENGTH = 1.2;
+    private static final double STICK_THICKNESS = 0.12;
+
+    /** Ram stick: height under the belly, and how far behind the sheep's centre it starts, per unit of scale. */
+    private static final double STICK_BELLY_HEIGHT = 0.55;
+    private static final double STICK_BACK = 0.35;
+
+    /** Ewe mark: a hollow oval-ish diamond ring on the behind. Size, distance behind the centre and height, per unit of scale. */
+    private static final double EWE_MARK_WIDTH = 0.36;
+    private static final double EWE_MARK_HEIGHT = 0.5;
+    private static final double EWE_MARK_DEPTH = 0.1;
+    private static final double EWE_RING_THICKNESS = 0.07;
+    private static final double EWE_MARK_BACK = 0.66;
+    private static final double EWE_MARK_RISE = 0.9;
+
+    /** Rams carry a wooden stick, ewes a magenta mark. */
+    private static final Material RAM_STICK = Material.OAK_PLANKS;
+    private static final Material EWE_MARK = Material.MAGENTA_CONCRETE;
+
     private static final NamespacedKey MOUNT_MODEL = new NamespacedKey("evosim", "mounting_sheep");
 
     private final Arena arena;
@@ -84,6 +118,8 @@ public final class CreatureView {
 
     private DyeColor dye;
     private ItemDisplay mountDisplay;
+    private BlockDisplay markDisplay;
+    private final List<BlockDisplay> ringParts = new ArrayList<>();
 
     private double appliedScale = -1;
     private int updates;
@@ -127,7 +163,7 @@ public final class CreatureView {
                 d.setAlignment(TextDisplay.TextAlignment.CENTER);
                 d.setBackgroundColor(Color.fromARGB(90, 0, 0, 0));
                 d.setViewRange(0.3f);
-                d.setTeleportDuration(1);
+                d.setTeleportDuration(MOB_GLIDE_TICKS);
                 float k = 0.45f;
                 d.setTransformation(new Transformation(new Vector3f(), new AxisAngle4f(),
                         new Vector3f(k, k, k), new AxisAngle4f()));
@@ -162,14 +198,23 @@ public final class CreatureView {
         }
         sheep.teleport(location());
 
+        updateMark();
+
         if (statBar != null && statBar.isValid()) {
             statBar.teleport(statBarLocation());
             if (ticks % 5 == 0) refreshStatBar();
         }
 
-        if (creature.isMating() && updates++ % 4 == 0) {
-            arena.world().spawnParticle(Particle.HEART, location().add(0, sheep.getHeight() + 0.2, 0),
-                    1, 0.25, 0.1, 0.25, 0);
+        if (creature.isMating()) {
+            if (updates % 4 == 0) {
+                arena.world().spawnParticle(Particle.HEART, location().add(0, sheep.getHeight() + 0.2, 0),
+                        1, 0.25, 0.1, 0.25, 0);
+            }
+            if (updates % 2 == 0) {
+                arena.world().spawnParticle(Particle.DUST, location().add(0, sheep.getHeight() * 0.5, 0),
+                        3, 0.3, 0.25, 0.3, 0, WHITE_DUST);
+            }
+            updates++;
         }
     }
 
@@ -180,6 +225,13 @@ public final class CreatureView {
                 8, 0.4, 0.3, 0.4, 0);
     }
 
+    /** Angry particles, played when this creature was bred again too soon. */
+    public void playOverbredEffect() {
+        if (!sheep.isValid()) return;
+        arena.world().spawnParticle(Particle.ANGRY_VILLAGER, location().add(0, sheep.getHeight() + 0.3, 0),
+                4, 0.3, 0.2, 0.3, 0);
+    }
+
     public void recolor(ColorMode mode) {
         dye = mode.dye(creature.genome());
         sheep.setColor(dye);
@@ -188,12 +240,40 @@ public final class CreatureView {
         }
     }
 
+    /**
+     * Turns the sheep into a corpse: it plays the death animation and then stays
+     * lying on its side where it died. This view stops following the creature;
+     * call {@link #removeCorpse()} later to clear it away.
+     */
+    public void playDeath() {
+        if (statBar != null) {
+            statBar.remove();
+            statBar = null;
+        }
+        removeMountDisplay();
+        removeMark();
+        if (!sheep.isValid()) return;
+        sheep.setInvisible(false);
+        Location loc = sheep.getLocation();
+        sheep.playEffect(EntityEffect.DEATH);
+        arena.world().playSound(loc, Sound.ENTITY_SHEEP_DEATH, 1f, 1f);
+        arena.world().spawnParticle(Particle.SMOKE, loc.clone().add(0, 0.4, 0), 10, 0.3, 0.2, 0.3, 0.01);
+    }
+
+    /** Clears a corpse left by {@link #playDeath()} with a small puff of smoke. */
+    public void removeCorpse() {
+        if (!sheep.isValid()) return;
+        arena.world().spawnParticle(Particle.POOF, sheep.getLocation().add(0, 0.4, 0), 12, 0.3, 0.2, 0.3, 0.02);
+        sheep.remove();
+    }
+
     public void remove() {
         if (statBar != null) {
             statBar.remove();
             statBar = null;
         }
         removeMountDisplay();
+        removeMark();
         sheep.remove();
     }
 
@@ -261,6 +341,135 @@ public final class CreatureView {
             return Color.fromRGB(java.awt.Color.HSBtoRGB(hue, 0.8f, 1f) & 0xFFFFFF);
         }
         return dye.getColor();
+    }
+
+    /** True for the lower-id partner of a mating pair, in either pose. */
+    private boolean isMounting() {
+        Creature partner = creature.mate();
+        return partner != null && creature.id() < partner.id();
+    }
+
+    /**
+     * Every sheep always carries a sex marker: rams a wooden stick under the belly pointing
+     * forward, ewes an oval-ish mark on the behind. While mounting it follows the rocking motion.
+     */
+    private void updateMark() {
+        double scale = currentScale();
+        boolean ewe = creature.isFemale();
+        Location loc;
+        double facing;
+        double lift;
+        double back;
+        if (isMounting()) {
+            Creature partner = creature.mate();
+            facing = partner.heading() + Math.PI;
+            double leaderScale = partner.genome().size();
+            double x;
+            double z;
+            if (tiltedMount) {
+                double rock = Math.sin(creature.age() * ROCK_SPEED);
+                double dist = (MOUNT_HIP_DISTANCE - ROCK_DISTANCE * rock) * leaderScale;
+                x = partner.x() - Math.cos(facing) * dist;
+                z = partner.z() - Math.sin(facing) * dist;
+                lift = MODEL_HIP_HEIGHT * Math.cos(Math.toRadians(MOUNT_TILT_DEGREES)) + (ewe ? 0.15 : 0.0);
+                back = ewe ? 0.1 : 0.0;
+            } else {
+                double gap = MOUNT_GAP * (creature.genome().size() + leaderScale);
+                x = partner.x() - Math.cos(facing) * gap;
+                z = partner.z() - Math.sin(facing) * gap;
+                lift = MOUNT_LIFT * leaderScale / scale + (ewe ? EWE_MARK_RISE : STICK_BELLY_HEIGHT);
+                back = ewe ? EWE_MARK_BACK : STICK_BACK;
+            }
+            loc = arena.toLocation(x, z);
+        } else {
+            loc = location();
+            facing = Math.toRadians(loc.getYaw() + 90.0);
+            lift = ewe ? EWE_MARK_RISE : STICK_BELLY_HEIGHT;
+            back = ewe ? EWE_MARK_BACK : STICK_BACK;
+        }
+        loc.add(-Math.cos(facing) * back * scale, lift * scale, -Math.sin(facing) * back * scale);
+        loc.setYaw((float) (Math.toDegrees(facing) - 90.0));
+        loc.setPitch(0f);
+
+        int glide = isMounting() ? 1 : MOB_GLIDE_TICKS;
+        if (ewe) {
+            updateRing(loc, scale, glide);
+        } else {
+            updateStick(loc, scale, glide);
+        }
+    }
+
+    /** The ram's stick: one block display shrunk into a rod that reaches forward (+z) from the entity. */
+    private void updateStick(Location loc, double scale, int glide) {
+        if (markDisplay == null || !markDisplay.isValid()) {
+            markDisplay = spawnMarkPart(loc, RAM_STICK);
+        }
+        markDisplay.setTeleportDuration(glide);
+        float width = (float) (STICK_THICKNESS * scale);
+        float length = (float) ((isMounting() ? STICK_MOUNT_LENGTH : STICK_LENGTH) * scale);
+        markDisplay.setTransformation(new Transformation(
+                new Vector3f(-width / 2f, -width / 2f, 0f), new AxisAngle4f(),
+                new Vector3f(width, width, length), new AxisAngle4f()));
+        markDisplay.teleport(loc);
+    }
+
+    /** The ewe's mark: four thin bars forming a hollow diamond, centred on the entity and facing backward. */
+    private void updateRing(Location loc, double scale, int glide) {
+        boolean spawned = ringParts.size() == 4;
+        for (BlockDisplay part : ringParts) {
+            if (!part.isValid()) spawned = false;
+        }
+        if (!spawned) {
+            removeMark();
+            for (int i = 0; i < 4; i++) {
+                ringParts.add(spawnMarkPart(loc, EWE_MARK));
+            }
+        }
+
+        float a = (float) (EWE_MARK_WIDTH * scale / 2.0);
+        float b = (float) (EWE_MARK_HEIGHT * scale / 2.0);
+        float thickness = (float) (EWE_RING_THICKNESS * scale);
+        float depth = (float) (EWE_MARK_DEPTH * scale);
+        Vector3f[] corners = {
+                new Vector3f(0f, b, 0f), new Vector3f(a, 0f, 0f),
+                new Vector3f(0f, -b, 0f), new Vector3f(-a, 0f, 0f)
+        };
+        for (int i = 0; i < 4; i++) {
+            Vector3f from = corners[i];
+            Vector3f to = corners[(i + 1) % 4];
+            float dx = to.x - from.x;
+            float dy = to.y - from.y;
+            float length = (float) Math.hypot(dx, dy);
+            float angle = (float) Math.atan2(dy, dx);
+            // The cube spans one block from its corner: scale it into a bar, turn it along its
+            // edge and shift it so its centre lands on the middle of the edge.
+            Vector3f shift = new Vector3f(length / 2f, thickness / 2f, depth / 2f).rotateZ(angle).negate()
+                    .add((from.x + to.x) / 2f, (from.y + to.y) / 2f, 0f);
+            BlockDisplay part = ringParts.get(i);
+            part.setTeleportDuration(glide);
+            part.setTransformation(new Transformation(shift, new AxisAngle4f(angle, 0f, 0f, 1f),
+                    new Vector3f(length, thickness, depth), new AxisAngle4f()));
+            part.teleport(loc);
+        }
+    }
+
+    private BlockDisplay spawnMarkPart(Location loc, Material material) {
+        return arena.world().spawn(loc, BlockDisplay.class, d -> {
+            d.setBlock(material.createBlockData());
+            d.setBrightness(new Display.Brightness(15, 15));
+            d.setPersistent(false);
+            d.setTeleportDuration(MOB_GLIDE_TICKS);
+            d.addScoreboardTag(Arena.ENTITY_TAG);
+        });
+    }
+
+    private void removeMark() {
+        if (markDisplay != null) {
+            markDisplay.remove();
+            markDisplay = null;
+        }
+        ringParts.forEach(BlockDisplay::remove);
+        ringParts.clear();
     }
 
     private void removeMountDisplay() {

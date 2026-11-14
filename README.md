@@ -36,6 +36,9 @@ population adapt.
   sheep look for a pond and stand in it to drink. At zero they lose energy.
 - **Depression:** mood falls while hungry, thirsty, alone or when others die nearby, and recovers otherwise.
   Depressed sheep are slower and will not mate. Eating and mating lift mood.
+- **Overbreeding:** mating again soon after the last mating (`wellbeing.overbreeding-window-seconds`)
+  drains mood instead of lifting it, and the sheep shows angry particles. There is no cooldown;
+  repeated overbreeding leads to depression.
 - **Orientation:** some sheep pair with their own sex. They have rainbow wool, pair up and
   show hearts like any pair, but no child is born. Rate: `orientation.same-sex-chance`.
 - **Stat bars:** a floating bar over each sheep (`animation.stat-bars`).

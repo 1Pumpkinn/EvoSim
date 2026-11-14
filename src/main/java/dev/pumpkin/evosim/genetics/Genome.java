@@ -79,13 +79,28 @@ public final class Genome {
         return new Genome(v);
     }
 
-    /** Mixes two parents: each trait is inherited whole from one parent or the other. */
+    /**
+     * Mixes two parents: each functional trait is inherited whole from one parent or the
+     * other, while the hue is blended, so red and blue parents have a purple child.
+     */
     public static Genome crossover(Genome a, Genome b, RandomGenerator rng) {
         double[] v = new double[TRAITS.length];
         for (Trait t : TRAITS) {
-            v[t.ordinal()] = rng.nextBoolean() ? a.get(t) : b.get(t);
+            if (t == Trait.HUE) {
+                v[t.ordinal()] = blendHue(a.hue(), b.hue());
+            } else {
+                v[t.ordinal()] = rng.nextBoolean() ? a.get(t) : b.get(t);
+            }
         }
         return new Genome(v);
+    }
+
+    /** Midpoint of two hues on the colour wheel, taking the shorter way around. */
+    private static double blendHue(double a, double b) {
+        double delta = b - a;
+        if (delta > 0.5) delta -= 1.0;
+        if (delta < -0.5) delta += 1.0;
+        return Trait.HUE.constrain(a + delta / 2.0);
     }
 
     /**

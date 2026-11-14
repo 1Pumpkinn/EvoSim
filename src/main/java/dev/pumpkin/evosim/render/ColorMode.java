@@ -17,7 +17,7 @@ public enum ColorMode {
     VISION;
 
     private static final double[] PALETTE_HUE = {
-            0.00, 0.08, 0.15, 0.25, 0.33, 0.50, 0.55, 0.65, 0.75, 0.83, 0.92
+            0.00, 0.08, 0.15, 0.25, 0.33, 0.50, 0.57, 0.65, 0.80, 0.89, 0.95
     };
     private static final DyeColor[] PALETTE_DYE = {
             DyeColor.RED, DyeColor.ORANGE, DyeColor.YELLOW, DyeColor.LIME,

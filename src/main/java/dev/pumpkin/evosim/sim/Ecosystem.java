@@ -31,6 +31,9 @@ public final class Ecosystem {
 
         /** Fired right after {@link #creatureBorn} for a child of two parents. */
         default void offspringBorn(Creature child, Creature parentA, Creature parentB) {}
+
+        /** Fired when a creature mated again too soon after its last mating and was pushed toward depression. */
+        default void overbred(Creature creature) {}
     }
 
     /** Heading change per sqrt(second) while wandering without a target. */
@@ -90,7 +93,7 @@ public final class Ecosystem {
                     1.0 + rng.nextDouble() * (size - 2.0),
                     rng.nextDouble() * 2.0 * Math.PI,
                     pop.startEnergy(),
-                    rng.nextBoolean(), rng.nextDouble() < config.needs().sameSexChance());
+                    rng.nextBoolean(), rng.nextDouble() < config.needs().sameSexChance(), 0, 0);
             c.advanceAge(pop.maturitySeconds()); // founders start as adults
             creatures.add(c);
             listener.creatureBorn(c);
@@ -154,8 +157,12 @@ public final class Ecosystem {
         return c.mood() < config.needs().depressionBelow();
     }
 
-    /** Opposite sexes pair up, or the same sex for creatures that pair with their own. */
+    /**
+     * Opposite sexes pair up, or the same sex for creatures that pair with their own.
+     * Parents, children and siblings never pair.
+     */
     private static boolean compatible(Creature a, Creature b) {
+        if (a.isCloseRelativeOf(b)) return false;
         if (a.isSameSex() != b.isSameSex()) return false;
         return a.isSameSex() ? a.isFemale() == b.isFemale() : a.isFemale() != b.isFemale();
     }
@@ -304,11 +311,24 @@ public final class Ecosystem {
             Creature b = a.mate();
             a.endMating();
             b.endMating();
-            a.addMood(MATING_MOOD);
-            b.addMood(MATING_MOOD);
+            applyMatingMood(a);
+            applyMatingMood(b);
+            a.markMated(elapsed);
+            b.markMated(elapsed);
             if (!a.isSameSex()) { // same-sex pairs bond but have no child
                 giveBirth(a, b);
             }
+        }
+    }
+
+    /** A normal mating lifts mood; mating again too soon after the last one is unwanted and drains it instead. */
+    private void applyMatingMood(Creature c) {
+        SimConfig.Needs needs = config.needs();
+        if (elapsed - c.lastMatedAt() < needs.overbreedingWindow()) {
+            c.addMood(-needs.overbreedingMoodLoss());
+            listener.overbred(c);
+        } else {
+            c.addMood(MATING_MOOD);
         }
     }
 
@@ -330,7 +350,8 @@ public final class Ecosystem {
                 clamp((a.z() + b.z()) / 2.0, 0.5, size - 0.5),
                 rng.nextDouble() * 2.0 * Math.PI,
                 pop.reproductionCost(),
-                rng.nextBoolean(), rng.nextDouble() < config.needs().sameSexChance());
+                rng.nextBoolean(), rng.nextDouble() < config.needs().sameSexChance(),
+                a.id(), b.id());
         creatures.add(child);
         births++;
         listener.creatureBorn(child);

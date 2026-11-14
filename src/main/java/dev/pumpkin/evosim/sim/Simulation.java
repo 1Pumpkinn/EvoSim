@@ -159,9 +159,22 @@ public final class Simulation implements Ecosystem.Listener {
     }
 
     @Override
+    public void overbred(Creature creature) {
+        CreatureView view = creatureViews.get(creature);
+        if (view != null) view.playOverbredEffect();
+    }
+
+    @Override
     public void creatureDied(Creature creature) {
         CreatureView view = creatureViews.remove(creature);
-        if (view != null) view.remove();
+        if (view == null) return;
+        long ticks = Math.round(config.animation().corpseSeconds() * 20.0);
+        if (ticks <= 0) {
+            view.remove();
+            return;
+        }
+        view.playDeath();
+        plugin.getServer().getScheduler().runTaskLater(plugin, view::removeCorpse, ticks);
     }
 
     @Override

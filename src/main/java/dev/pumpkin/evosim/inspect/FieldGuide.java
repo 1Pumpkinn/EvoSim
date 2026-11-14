@@ -110,7 +110,7 @@ public final class FieldGuide implements Listener {
                 .build();
 
         return Book.book(Component.text("Sheep #" + c.id()), Component.text("EvoSim"),
-                identity, traits, wellbeing);
+                List.of(identity, traits, wellbeing));
     }
 
     private static Component line(String label, String value) {

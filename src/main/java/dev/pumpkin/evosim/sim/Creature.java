@@ -21,15 +21,18 @@ public final class Creature {
     private double age;
     private final boolean female;
     private final boolean sameSex;
+    private final long parentAId;
+    private final long parentBId;
     private double hydration = 100;
     private double mood = 100;
 
     private Creature mate;
     private double matingRemaining;
+    private double lastMatedAt = Double.NEGATIVE_INFINITY;
 
     public Creature(long id, Genome genome, int generation,
                     double x, double z, double heading, double energy,
-                    boolean female, boolean sameSex) {
+                    boolean female, boolean sameSex, long parentAId, long parentBId) {
         this.id = id;
         this.genome = genome;
         this.generation = generation;
@@ -39,12 +42,26 @@ public final class Creature {
         this.energy = energy;
         this.female = female;
         this.sameSex = sameSex;
+        this.parentAId = parentAId;
+        this.parentBId = parentBId;
     }
 
     public long id() { return id; }
 
     /** Ewe (true) or ram (false). */
     public boolean isFemale() { return female; }
+
+    /** True for parent and child, and for siblings (one or both parents shared). Founders have no parents. */
+    public boolean isCloseRelativeOf(Creature other) {
+        if (other == this) return true;
+        if (parentAId == other.id || parentBId == other.id) return true;
+        if (other.parentAId == id || other.parentBId == id) return true;
+        return sharesParent(parentAId, other) || sharesParent(parentBId, other);
+    }
+
+    private static boolean sharesParent(long parentId, Creature other) {
+        return parentId != 0 && (parentId == other.parentAId || parentId == other.parentBId);
+    }
 
     /** Pairs with its own sex instead of the other one. */
     public boolean isSameSex() { return sameSex; }
@@ -105,6 +122,11 @@ public final class Creature {
     }
 
     public void advanceMating(double seconds) { this.matingRemaining -= seconds; }
+
+    /** Simulation time of the last finished mating, or negative infinity if it never mated. */
+    public double lastMatedAt() { return lastMatedAt; }
+
+    public void markMated(double simTime) { this.lastMatedAt = simTime; }
 
     public void endMating() {
         this.mate = null;

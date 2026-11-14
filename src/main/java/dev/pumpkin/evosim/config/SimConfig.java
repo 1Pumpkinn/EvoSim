@@ -39,15 +39,20 @@ public record SimConfig(
      * depressionBelow: mood under which a creature is depressed (slower, no mating);
      * moodDrain/moodRecovery: mood change per second; griefMoodLoss: mood lost by every creature
      * near a death (double for a widowed partner); sameSexChance: share of creatures that
-     * pair with their own sex.
+     * pair with their own sex; overbreedingWindow: a creature that mates again within this many
+     * seconds of its last mating is overbred; overbreedingMoodLoss: mood it loses each time.
      */
     public record Needs(int pondCount, double pondRadius, double thirstDrain, double drinkRate,
                         double seekBelow, double dehydrationDamage, double depressionBelow,
                         double depressedSpeedFactor, double moodDrain, double moodRecovery,
-                        double griefMoodLoss, double sameSexChance) {}
+                        double griefMoodLoss, double sameSexChance,
+                        double overbreedingWindow, double overbreedingMoodLoss) {}
 
-    /** tiltedMount: tilted model for the mounting mate (needs the resource pack); statBars: floating stat bars. */
-    public record Animation(boolean tiltedMount, boolean statBars) {}
+    /**
+     * tiltedMount: tilted model for the mounting mate (needs the resource pack); statBars: floating
+     * stat bars; corpseSeconds: how long a dead sheep lies on its side before it disappears.
+     */
+    public record Animation(boolean tiltedMount, boolean statBars, double corpseSeconds) {}
 
     public static SimConfig load(FileConfiguration cfg, Logger log) {
         Simulation simulation = new Simulation(
@@ -104,11 +109,14 @@ public record SimConfig(
                 clamp(cfg.getDouble("wellbeing.mood-drain-per-second", 1.0), 0, 100),
                 clamp(cfg.getDouble("wellbeing.mood-recovery-per-second", 0.6), 0, 100),
                 clamp(cfg.getDouble("wellbeing.grief-mood-loss", 18), 0, 100),
-                clamp(cfg.getDouble("orientation.same-sex-chance", 0.1), 0, 1));
+                clamp(cfg.getDouble("orientation.same-sex-chance", 0.1), 0, 1),
+                clamp(cfg.getDouble("wellbeing.overbreeding-window-seconds", 30), 0, 10_000),
+                clamp(cfg.getDouble("wellbeing.overbreeding-mood-loss", 35), 0, 100));
 
         Animation animation = new Animation(
                 cfg.getBoolean("animation.tilted-mount", true),
-                cfg.getBoolean("animation.stat-bars", true));
+                cfg.getBoolean("animation.stat-bars", true),
+                clamp(cfg.getDouble("animation.corpse-seconds", 4.0), 0, 60));
 
         return new SimConfig(simulation, arena, population, food, energy, evolution, needs, animation);
     }
