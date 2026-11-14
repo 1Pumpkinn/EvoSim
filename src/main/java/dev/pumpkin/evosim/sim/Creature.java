@@ -3,12 +3,34 @@ package dev.pumpkin.evosim.sim;
 import dev.pumpkin.evosim.config.SimConfig;
 import dev.pumpkin.evosim.genetics.Genome;
 
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Set;
+
 /**
  * Simulation state of one creature. Positions are arena-local blocks
  * (0..size). This class has no Bukkit dependency; rendering lives in
  * {@code CreatureView}.
  */
 public final class Creature {
+
+    /** What the creature is doing right now, as decided by the steering code. */
+    public enum Activity {
+        WANDERING("Wandering"),
+        TO_FOOD("Heading for food"),
+        TO_WATER("Heading for water"),
+        FOOD_ON_THE_WAY("Grabbing food on the way to water"),
+        SEARCHING_WATER("Searching for water"),
+        TO_MATE("Looking for a mate"),
+        DRINKING("Drinking"),
+        MATING("Mating");
+
+        private final String label;
+
+        Activity(String label) { this.label = label; }
+
+        public String label() { return label; }
+    }
 
     private final long id;
     private final Genome genome;
@@ -31,6 +53,9 @@ public final class Creature {
     private double restRemaining;
     private Food targetFood;
     private boolean drinking;
+    private Activity activity = Activity.WANDERING;
+    /** Ponds this creature has seen, so it can walk back to water that is out of sight. */
+    private final Set<Pond> knownPonds = new LinkedHashSet<>();
 
     public Creature(long id, Genome genome, int generation,
                     double x, double z, double heading, double energy,
@@ -139,6 +164,16 @@ public final class Creature {
     public boolean isDrinking() { return drinking; }
 
     public void setDrinking(boolean drinking) { this.drinking = drinking; }
+
+    /** What it is doing: mating wins over whatever steering last decided. */
+    public Activity activity() { return isMating() ? Activity.MATING : activity; }
+
+    public void setActivity(Activity activity) { this.activity = activity; }
+
+    /** Ponds it has seen so far. */
+    public Set<Pond> knownPonds() { return Collections.unmodifiableSet(knownPonds); }
+
+    public void rememberPond(Pond pond) { knownPonds.add(pond); }
 
     public void beginRest(double seconds) { this.restRemaining = Math.max(restRemaining, seconds); }
 

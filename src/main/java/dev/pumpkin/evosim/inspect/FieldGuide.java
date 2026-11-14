@@ -122,6 +122,7 @@ public final class FieldGuide implements Listener {
                 .append(line("Mood", fmt(c.mood(), 0) + " / 100"))
                 .appendNewline()
                 .append(line("State", state))
+                .append(line("Doing", c.activity().label()))
                 .append(line("Biome", biomes.at(c.x(), c.z()).displayName()))
                 .append(line("Depressed below", fmt(needs.depressionBelow(), 0)))
                 .build();

@@ -3,7 +3,7 @@
 simulation:
   # Run the simulation every N server ticks (1 = 20 updates/sec, smoothest mob motion).
   tick-interval: 1
-  # Simulation speed multiplier. 2.0 = twice as fast as real time.
+  # Simulation speed multiplier, 0.1 to 100. 2.0 = twice as fast as real time.
   time-scale: 1.0
 
 dimension:

@@ -183,6 +183,14 @@ public final class CreatureView {
 
     public Creature creature() { return creature; }
 
+    /** The sheep entity that draws this creature (what a spectating player can ride along with). */
+    public Sheep entity() { return sheep; }
+
+    /** Outlines the sheep through walls, used to show which sheep a player has selected. */
+    public void setHighlighted(boolean on) {
+        if (sheep.isValid()) sheep.setGlowing(on);
+    }
+
     /** Moves the mob to the creature's simulated position and plays mating effects. */
     public void update() {
         if (!sheep.isValid()) return;
@@ -249,6 +257,7 @@ public final class CreatureView {
         removeMountDisplay();
         removeMark();
         if (!sheep.isValid()) return;
+        sheep.setGlowing(false);
         sheep.setInvisible(false);
         Location loc = sheep.getLocation();
         sheep.playEffect(EntityEffect.DEATH);
@@ -505,7 +514,7 @@ public final class CreatureView {
             status = "Hungry";
             statusColor = NamedTextColor.GOLD;
         } else {
-            status = "Fine";
+            status = creature.activity().label();
         }
 
         double mood = creature.mood();

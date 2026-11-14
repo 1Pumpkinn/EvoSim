@@ -6,6 +6,7 @@ import dev.pumpkin.evosim.genetics.Genome;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -58,6 +59,15 @@ public final class Ecosystem {
     private static final double SEPARATION_PUSH = 0.9;
     /** Creatures within this many blocks of a death grieve. */
     private static final double GRIEF_RADIUS = 8;
+    /** Below this share of the reproduction threshold a creature is hungry enough to grab food on its way to water. */
+    private static final double HUNGRY_FRACTION = 0.6;
+    /** Extra walking, in blocks, a hungry creature accepts to pick up food on the way to water. */
+    private static final double DETOUR_THIRSTY = 4.0;
+    private static final double DETOUR_PARCHED = 1.5;
+    /** A food it already chose stays chosen while its detour is within this multiple of the allowance. */
+    private static final double DETOUR_STICKY = 1.5;
+    /** Heading change per sqrt(second) while searching for water: straighter than aimless wandering. */
+    private static final double SEARCH_TURN = 0.5;
 
     private final SimConfig config;
     private final Listener listener;
@@ -70,6 +80,9 @@ public final class Ecosystem {
     private final BiomeMap biomes;
     /** Lower-id partner of every pair made by {@link #forceMate}: these always have a child. */
     private final Set<Creature> forcedPairs = new HashSet<>();
+
+    private final EnumMap<DeathCause, Integer> deathCounts = new EnumMap<>(DeathCause.class);
+    private final EnumMap<DeathCause, Double> deathAgeSums = new EnumMap<>(DeathCause.class);
 
     private long nextCreatureId = 1;
     private long nextFoodId = 1;
@@ -121,6 +134,8 @@ public final class Ecosystem {
         creatures.clear();
         foods.clear();
         forcedPairs.clear();
+        deathCounts.clear();
+        deathAgeSums.clear();
         nextCreatureId = 1;
         nextFoodId = 1;
         foodAccumulator = 0;
@@ -226,37 +241,127 @@ public final class Ecosystem {
         return nearest;
     }
 
+    /** Remembers every pond whose edge is within the creature's vision. */
+    private void noteVisiblePonds(Creature c) {
+        double vision = c.genome().vision();
+        for (Pond p : ponds) {
+            if (p.edgeDistance(c.x(), c.z()) <= vision) c.rememberPond(p);
+        }
+    }
+
+    /** Water to walk to: the nearest pond in sight, else the nearest one it remembers; null if it knows none. */
+    private Pond chooseWater(Creature c) {
+        Pond visible = nearestPond(c);
+        if (visible != null) return visible;
+        double best = Double.MAX_VALUE;
+        Pond nearest = null;
+        for (Pond p : c.knownPonds()) {
+            double d = p.edgeDistance(c.x(), c.z());
+            if (d < best) {
+                best = d;
+                nearest = p;
+            }
+        }
+        return nearest;
+    }
+
+    /** Extra walking needed to reach the pond's edge via this food instead of going straight. */
+    private static double detour(Creature c, Food f, Pond pond) {
+        double direct = Math.max(0, Math.hypot(pond.x() - c.x(), pond.z() - c.z()) - pond.radius());
+        double toFood = Math.hypot(f.x() - c.x(), f.z() - c.z());
+        double foodToPond = Math.max(0, Math.hypot(pond.x() - f.x(), pond.z() - f.z()) - pond.radius());
+        return toFood + foodToPond - direct;
+    }
+
+    /**
+     * Food in sight that lies close to the walk to the pond, for a hungry creature: the one that
+     * costs the least extra walking, within an allowance that is smaller when it is parched. It
+     * keeps the same food until eaten so it does not dither. Null when nothing is worth a detour.
+     */
+    private Food foodOnTheWay(Creature c, Pond pond, boolean parched) {
+        double budget = parched ? DETOUR_PARCHED : DETOUR_THIRSTY;
+        double vision = c.genome().vision();
+        double v2 = vision * vision;
+        Food current = c.targetFood();
+        if (current != null && foods.contains(current)) {
+            double dx = current.x() - c.x();
+            double dz = current.z() - c.z();
+            if (dx * dx + dz * dz <= v2 * 1.44 && detour(c, current, pond) <= budget * DETOUR_STICKY) {
+                return current;
+            }
+        }
+        double bestDetour = budget;
+        Food best = null;
+        for (Food f : foods) {
+            double dx = f.x() - c.x();
+            double dz = f.z() - c.z();
+            if (dx * dx + dz * dz > v2) continue;
+            double extra = detour(c, f, pond);
+            if (extra <= bestDetour) {
+                bestDetour = extra;
+                best = f;
+            }
+        }
+        return best;
+    }
+
     private void steerAndMove(double h) {
         SimConfig.Needs needs = config.needs();
         for (Creature c : creatures) {
             if (c.isMating()) continue; // paired creatures stay put
             updateDrinking(c);
-            if (c.isDrinking()) continue; // drinking creatures stay put
+            if (c.isDrinking()) { // drinking creatures stay put
+                c.setActivity(Creature.Activity.DRINKING);
+                continue;
+            }
 
-            // 1. Pick a target: water if parched, else a mate, else water if thirsty, else food.
+            noteVisiblePonds(c);
+
+            // 1. Pick a target. Parched: water. Otherwise a mate, then water if thirsty (in sight or
+            //    remembered, and while hungry it grabs food on the way), else food. A thirsty creature
+            //    that is not hungry and knows no water searches for it instead of chasing food.
             boolean thirsty = c.hydration() < needs.seekBelow();
             boolean parched = c.hydration() < needs.seekBelow() * 0.5;
-            Pond pond = thirsty ? nearestPond(c) : null;
+            boolean hungry = c.energy() < config.population().reproductionThreshold() * HUNGRY_FRACTION;
+            Pond pond = thirsty ? chooseWater(c) : null;
             Creature mate = isReady(c) ? nearestMate(c) : null;
             double tx = 0;
             double tz = 0;
             double stopShort = 0; // distance to keep from the target
             boolean hasTarget = false;
+            boolean searching = false;
             if (pond != null && (parched || mate == null)) {
-                tx = pond.x();
-                tz = pond.z();
+                Food snack = hungry ? foodOnTheWay(c, pond, parched) : null;
+                c.setTargetFood(snack);
+                if (snack != null) {
+                    tx = snack.x();
+                    tz = snack.z();
+                    c.setActivity(Creature.Activity.FOOD_ON_THE_WAY);
+                } else {
+                    tx = pond.x();
+                    tz = pond.z();
+                    c.setActivity(Creature.Activity.TO_WATER);
+                }
                 hasTarget = true;
             } else if (mate != null) {
                 tx = mate.x();
                 tz = mate.z();
                 stopShort = c.radius() + mate.radius();
                 hasTarget = true;
+                c.setActivity(Creature.Activity.TO_MATE);
+            } else if (thirsty && !hungry) {
+                searching = true;
+                c.setActivity(Creature.Activity.SEARCHING_WATER);
             } else {
                 Food food = chooseFood(c);
                 if (food != null) {
                     tx = food.x();
                     tz = food.z();
                     hasTarget = true;
+                    c.setActivity(Creature.Activity.TO_FOOD);
+                } else {
+                    c.setActivity(thirsty ? Creature.Activity.SEARCHING_WATER : Creature.Activity.WANDERING);
+                    searching = thirsty;
                 }
             }
 
@@ -269,7 +374,8 @@ public final class Ecosystem {
                 vx = dist > 1e-9 ? (tx - c.x()) / dist : Math.cos(c.heading());
                 vz = dist > 1e-9 ? (tz - c.z()) / dist : Math.sin(c.heading());
             } else {
-                double wander = c.heading() + rng.nextGaussian() * WANDER_TURN * Math.sqrt(h);
+                double turn = searching ? SEARCH_TURN : WANDER_TURN;
+                double wander = c.heading() + rng.nextGaussian() * turn * Math.sqrt(h);
                 vx = Math.cos(wander);
                 vz = Math.sin(wander);
             }
@@ -598,9 +704,27 @@ public final class Ecosystem {
             }
             forcedPairs.remove(c);
             c.endMating();
+            DeathCause cause = causeOfDeath(c, maxAge);
+            deathCounts.merge(cause, 1, Integer::sum);
+            deathAgeSums.merge(cause, c.age(), Double::sum);
             deaths++;
             listener.creatureDied(c);
         }
+    }
+
+    private static DeathCause causeOfDeath(Creature c, double maxAge) {
+        if (c.age() >= maxAge * c.genome().longevity()) return DeathCause.OLD_AGE;
+        return c.hydration() <= 0 ? DeathCause.DEHYDRATION : DeathCause.STARVATION;
+    }
+
+    /** Deaths so far by cause, most common first; causes that have not happened are left out. */
+    public List<DeathTally> deathTallies() {
+        List<DeathTally> tallies = new ArrayList<>();
+        for (var e : deathCounts.entrySet()) {
+            tallies.add(new DeathTally(e.getKey(), e.getValue(), deathAgeSums.get(e.getKey()) / e.getValue()));
+        }
+        tallies.sort(Comparator.comparingInt(DeathTally::count).reversed());
+        return tallies;
     }
 
     public Stats stats() {

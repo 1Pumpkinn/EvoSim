@@ -7,6 +7,7 @@ import dev.pumpkin.evosim.config.SimConfig;
 import dev.pumpkin.evosim.hud.Hud;
 import dev.pumpkin.evosim.inspect.BreedingStick;
 import dev.pumpkin.evosim.inspect.FieldGuide;
+import dev.pumpkin.evosim.inspect.SheepTracker;
 import dev.pumpkin.evosim.sim.BiomeMap;
 import dev.pumpkin.evosim.sim.Pond;
 import dev.pumpkin.evosim.sim.Simulation;
@@ -26,6 +27,7 @@ public final class EvoSimPlugin extends JavaPlugin {
     private Simulation simulation;
     private Hud hud;
     private SimWorld simWorld;
+    private SheepTracker sheepTracker;
 
     @Override
     public void onEnable() {
@@ -42,8 +44,12 @@ public final class EvoSimPlugin extends JavaPlugin {
         BreedingStick breedingStick = new BreedingStick(this);
         getServer().getPluginManager().registerEvents(breedingStick, this);
 
+        sheepTracker = new SheepTracker(this);
+        getServer().getPluginManager().registerEvents(sheepTracker, this);
+        sheepTracker.start();
+
         PluginCommand command = Objects.requireNonNull(getCommand("evo"), "evo command missing from plugin.yml");
-        EvoCommand executor = new EvoCommand(this, hud, fieldGuide, breedingStick);
+        EvoCommand executor = new EvoCommand(this, hud, fieldGuide, breedingStick, sheepTracker);
         command.setExecutor(executor);
         command.setTabCompleter(executor);
 
@@ -52,6 +58,9 @@ public final class EvoSimPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (sheepTracker != null) {
+            sheepTracker.stop();
+        }
         if (hud != null) {
             hud.stop();
         }

@@ -19,6 +19,9 @@ public record SimConfig(
         Dimension dimension
 ) {
 
+    /** Fastest simulation speed, as a multiple of real time. */
+    public static final double MAX_TIME_SCALE = 100.0;
+
     public record Simulation(int tickInterval, double timeScale) {}
 
     public record Arena(int size, int wallHeight, Material floorBlock, Material wallBlock) {}
@@ -72,7 +75,7 @@ public record SimConfig(
     public static SimConfig load(FileConfiguration cfg, Logger log) {
         Simulation simulation = new Simulation(
                 clamp(cfg.getInt("simulation.tick-interval", 1), 1, 20),
-                clamp(cfg.getDouble("simulation.time-scale", 1.0), 0.1, 20.0));
+                clamp(cfg.getDouble("simulation.time-scale", 1.0), 0.1, MAX_TIME_SCALE));
 
         Arena arena = new Arena(
                 clamp(cfg.getInt("arena.size", 384), 16, 512),

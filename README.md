@@ -21,13 +21,16 @@ population adapt.
 | `/evo start` / `stop` | Run or pause the simulation |
 | `/evo reset` | Wipe the ecosystem and respawn fresh founders |
 | `/evo spawn [n]` | Add n founder creatures (default 10) |
-| `/evo speed <0.1-20>` | Simulation speed multiplier |
+| `/evo speed <0.1-100>` | Simulation speed multiplier (very high speeds with a large population can lower the server's TPS) |
 | `/evo color <lineage\|speed\|size\|vision>` | What creature colours show (blue = low, red = high) |
 | `/evo stats` | Population, mean traits, diversity, births and deaths |
 | `/evo tp` | Teleport to the arena centre |
 | `/evo hud` | Toggle the stats boss bar |
 | `/evo book` | Give yourself the Field Guide (right-click a sheep to read its stats) |
 | `/evo stick` | Give yourself the Breeding Stick (testing: right-click two sheep and they breed, whatever their sex or preference) |
+| `/evo tracker` | Give yourself the Tracker: right-click a sheep to select it (glows, live panel on your action bar with an arrow and distance), right-click the air to browse all sheep, sneak + right-click a sheep to see through its eyes |
+| `/evo sheep` | Open the sheep browser without the item: filter (thirsty, hungry, mating, ewes, rams...) and sort, then click to select, shift-click to teleport, right-click to view |
+| `/evo deaths` | Open a dialog with what the sheep have died of (old age, starvation, dehydration), with counts, shares and average age |
 | `/evo remove` | Remove the arena and all creatures, and send players back to the main world |
 | `/evo reload` | Reload config.yml (applies to the next `/evo create`) |
 
@@ -37,6 +40,10 @@ population adapt.
   desert, tundra and swamp (`biomes.regions`, `biomes.enabled`). Every `/evo create` rolls a new map: the patch count, patch sizes and biome mix all vary (`biomes.region-variance`, `biomes.size-variance`), so one biome may sprawl while another is tiny. Forests grow more food but slow
   walking, deserts have little food and fierce thirst, tundra burns extra energy, swamps slow
   walking but barely cause thirst. The Field Guide shows the biome a sheep stands in.
+- **Water and food on the way:** thirsty sheep walk to a pond they can see, or one they have seen before and
+  remember, even when it is out of sight. With no water known and no hunger they search in long straight
+  stretches instead of grazing. A hungry sheep heading for water grabs food that lies close to the route
+  (less of a detour when parched). The Field Guide and stat bar show what each sheep is doing.
 - **Pathfinding:** sheep stick to one piece of food until it is eaten, turn at a limited rate,
   stop at their target instead of overshooting, steer away from walls and from each other, count
   food on slow ground as further away, and only stop to drink when they are thirsty.

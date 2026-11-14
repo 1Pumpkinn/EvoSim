@@ -7,7 +7,7 @@ description: Real-time evolution simulation with natural selection.
 commands:
   evo:
     description: Control the evolution simulation
-    usage: /evo <create|start|stop|reset|spawn|speed|color|stats|tp|remove|hud|book|stick|reload>
+    usage: /evo <create|start|stop|reset|spawn|speed|color|stats|tp|remove|hud|book|stick|tracker|sheep|deaths|reload>
     permission: evosim.admin
 
 permissions:

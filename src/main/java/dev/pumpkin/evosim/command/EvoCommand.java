@@ -1,9 +1,12 @@
 package dev.pumpkin.evosim.command;
 
 import dev.pumpkin.evosim.EvoSimPlugin;
+import dev.pumpkin.evosim.config.SimConfig;
 import dev.pumpkin.evosim.hud.Hud;
 import dev.pumpkin.evosim.inspect.BreedingStick;
+import dev.pumpkin.evosim.inspect.DeathStatsDialog;
 import dev.pumpkin.evosim.inspect.FieldGuide;
+import dev.pumpkin.evosim.inspect.SheepTracker;
 import dev.pumpkin.evosim.render.ColorMode;
 import dev.pumpkin.evosim.sim.Simulation;
 import dev.pumpkin.evosim.sim.Stats;
@@ -25,18 +28,21 @@ public final class EvoCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
             "create", "start", "stop", "reset", "spawn", "speed",
-            "color", "stats", "tp", "remove", "hud", "book", "stick", "reload");
+            "color", "stats", "tp", "remove", "hud", "book", "stick", "tracker", "sheep", "deaths", "reload");
 
     private final EvoSimPlugin plugin;
     private final Hud hud;
     private final FieldGuide fieldGuide;
     private final BreedingStick breedingStick;
+    private final SheepTracker sheepTracker;
 
-    public EvoCommand(EvoSimPlugin plugin, Hud hud, FieldGuide fieldGuide, BreedingStick breedingStick) {
+    public EvoCommand(EvoSimPlugin plugin, Hud hud, FieldGuide fieldGuide, BreedingStick breedingStick,
+                      SheepTracker sheepTracker) {
         this.plugin = plugin;
         this.hud = hud;
         this.fieldGuide = fieldGuide;
         this.breedingStick = breedingStick;
+        this.sheepTracker = sheepTracker;
     }
 
     @Override
@@ -68,6 +74,9 @@ public final class EvoCommand implements CommandExecutor, TabCompleter {
             case "hud" -> toggleHud(sender);
             case "book" -> giveBook(sender);
             case "stick" -> giveStick(sender);
+            case "tracker" -> giveTracker(sender);
+            case "sheep" -> openSheepList(sender);
+            case "deaths" -> withSimulation(sender, sim -> deaths(sender, sim));
             case "reload" -> {
                 plugin.reloadSimConfig();
                 ok(sender, "Config reloaded. It applies the next time you run /evo create.");
@@ -113,7 +122,7 @@ public final class EvoCommand implements CommandExecutor, TabCompleter {
         withSimulation(sender, sim -> {
             Double value = args.length > 1 ? parseDouble(args[1]) : null;
             if (value == null) {
-                error(sender, "Usage: /evo speed <0.1-20>  (currently x" + sim.timeScale() + ")");
+                error(sender, "Usage: /evo speed <0.1-" + (int) SimConfig.MAX_TIME_SCALE + ">  (currently x" + sim.timeScale() + ")");
                 return;
             }
             sim.setTimeScale(value);
@@ -181,6 +190,34 @@ public final class EvoCommand implements CommandExecutor, TabCompleter {
         ok(sender, "Right-click two sheep with the Breeding Stick to make them breed.");
     }
 
+    private void giveTracker(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            error(sender, "Only players can hold a tracker.");
+            return;
+        }
+        player.getInventory().addItem(sheepTracker.createItem());
+        ok(sender, "Right-click a sheep to select it, or the air to browse every sheep.");
+    }
+
+    private void openSheepList(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            error(sender, "Only players can browse sheep.");
+            return;
+        }
+        sheepTracker.openMenu(player);
+    }
+
+    private void deaths(CommandSender sender, Simulation sim) {
+        if (sender instanceof Player player) {
+            DeathStatsDialog.show(player, sim);
+            return;
+        }
+        var tallies = sim.deathTallies();
+        if (tallies.isEmpty()) line(sender, "No sheep have died yet.");
+        tallies.forEach(t -> line(sender, String.format(Locale.ROOT, "%s: %d (average age %.0f s)",
+                t.cause().label(), t.count(), t.meanAgeSeconds())));
+    }
+
     private void toggleHud(CommandSender sender) {
         if (!(sender instanceof Player player)) {
             error(sender, "Only players have a HUD.");
@@ -198,7 +235,7 @@ public final class EvoCommand implements CommandExecutor, TabCompleter {
             return switch (args[0].toLowerCase(Locale.ROOT)) {
                 case "color" -> filter(Arrays.stream(ColorMode.values())
                         .map(m -> m.name().toLowerCase(Locale.ROOT)).toList(), args[1]);
-                case "speed" -> filter(List.of("0.5", "1", "2", "5", "10", "20"), args[1]);
+                case "speed" -> filter(List.of("0.5", "1", "2", "5", "10", "20", "50", "100"), args[1]);
                 case "spawn" -> filter(List.of("10", "25", "50", "100"), args[1]);
                 default -> List.of();
             };

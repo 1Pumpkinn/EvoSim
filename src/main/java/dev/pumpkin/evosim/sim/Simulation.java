@@ -10,6 +10,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SplittableRandom;
@@ -23,6 +24,9 @@ public final class Simulation implements Ecosystem.Listener {
 
     /** Largest simulated time slice per ecosystem step, in seconds. */
     private static final double MAX_SUBSTEP = 0.1;
+
+    /** Most ecosystem steps run in one server tick, so a very high speed cannot freeze the server. */
+    private static final int MAX_STEPS_PER_TICK = 50;
 
     private final Plugin plugin;
     private final SimConfig config;
@@ -69,11 +73,23 @@ public final class Simulation implements Ecosystem.Listener {
 
     public SimConfig config() { return config; }
 
+    /** Deaths so far by cause, most common first. */
+    public List<DeathTally> deathTallies() { return ecosystem.deathTallies(); }
+
+    /** Every living creature. */
+    public List<Creature> creatures() { return ecosystem.creatures(); }
+
+    /** False once the creature has died (or the ecosystem was reset). */
+    public boolean isAlive(Creature creature) { return creatureViews.containsKey(creature); }
+
+    /** The view drawing this creature, while it is alive. */
+    public Optional<CreatureView> viewOf(Creature creature) { return Optional.ofNullable(creatureViews.get(creature)); }
+
     /** Called once when the last creature dies; the simulation stops itself first. */
     public void onExtinction(Runnable listener) { this.extinctionListener = listener; }
 
     public void setTimeScale(double scale) {
-        this.timeScale = Math.max(0.1, Math.min(20.0, scale));
+        this.timeScale = Math.max(0.1, Math.min(SimConfig.MAX_TIME_SCALE, scale));
     }
 
     public void setColorMode(ColorMode mode) {
@@ -132,7 +148,7 @@ public final class Simulation implements Ecosystem.Listener {
 
     private void tick() {
         double dt = config.simulation().tickInterval() / 20.0 * timeScale;
-        int steps = Math.max(1, (int) Math.ceil(dt / MAX_SUBSTEP));
+        int steps = Math.max(1, Math.min(MAX_STEPS_PER_TICK, (int) Math.ceil(dt / MAX_SUBSTEP)));
         double h = dt / steps;
         for (int i = 0; i < steps && !ecosystem.isExtinct(); i++) {
             ecosystem.step(h);
